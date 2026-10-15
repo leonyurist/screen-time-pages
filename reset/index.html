@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>בחירת סיסמה חדשה · ScreenDeal</title>
+<link rel="stylesheet" href="../style.css">
+<style>
+  .open { display: inline-block; margin: 12px 0; padding: 12px 24px; border-radius: 999px; background: var(--primary); color: #fff; text-decoration: none; font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>⏳ ScreenDeal</h1>
+  <div class="card" id="phone">
+    <h2>פותחים את האפליקציה...</h2>
+    <p>אם האפליקציה לא נפתחה לבד, לוחצים על הכפתור:</p>
+    <a class="open" id="open" href="#">פתיחת ScreenDeal ובחירת סיסמה</a>
+    <p class="muted">צריך לפתוח את הקישור בטלפון שבו משתמשים ב-ScreenDeal <b>כהורה</b>. בטלפון של הילד האפליקציה לא מציגה את מסכי ההורה.</p>
+  </div>
+  <div class="card" id="computer" hidden>
+    <h2>פותחים את המייל בטלפון</h2>
+    <p>הקישור לבחירת סיסמה חדשה עובד רק בטלפון אנדרואיד שבו מותקנת אפליקציית ScreenDeal ומשתמשים בה כהורה.</p>
+    <p>פותחים את המייל "איפוס סיסמה ל-ScreenDeal" בטלפון הזה, ולוחצים שוב על הכפתור.</p>
+  </div>
+  <div class="card" id="bad" hidden>
+    <h2>הקישור לא שלם</h2>
+    <p>אפשר לבקש קישור חדש באפליקציה: "שכחתי סיסמה".</p>
+  </div>
+</main>
+<script>
+  // The one-time code stays in this page and the app: it's checked only when the app sends it to the server.
+  var q = new URLSearchParams(location.search);
+  var token = q.get("token_hash"), type = q.get("type") || "recovery";
+  var android = /Android/i.test(navigator.userAgent);
+  if (!token) {
+    document.getElementById("phone").hidden = true;
+    document.getElementById("bad").hidden = false;
+  } else if (!android) {
+    document.getElementById("phone").hidden = true;
+    document.getElementById("computer").hidden = false;
+  } else {
+    var link = "screentime://reset?token_hash=" + encodeURIComponent(token) + "&type=" + encodeURIComponent(type);
+    document.getElementById("open").href = link;
+    location.href = link;
+  }
+</script>
+</body>
+</html>
