@@ -97,7 +97,8 @@
     <ul>
       <li>מיקום: 24 שעות, ואז נמחק.</li>
       <li>זמן שימוש לכל אפליקציה: 90 יום.</li>
-      <li>שאר המידע (פעילויות, היסטוריה, צילומים, חוקים): כל עוד החשבון קיים, או עד שההורה מוחק את הילד.</li>
+      <li>צילומים שהילד צילם אחרי פעילות: 90 יום, ואז נמחקים אוטומטית.</li>
+      <li>שאר המידע (פעילויות, היסטוריה, חוקים): כל עוד החשבון קיים, או עד שההורה מוחק את הילד.</li>
       <li>אחרי מחיקת חשבון, המידע נמחק מיד מהמערכת. עותקי גיבוי אצל ספק השרת עשויים להישאר לזמן מוגבל ואז נמחקים.</li>
     </ul>
   </div>
@@ -131,7 +132,7 @@
     <p><b>Accessibility service.</b> Used to detect which app is in the foreground, to deduct screen time, block apps when time runs out or the phone is locked, and count time per app; on the phone's Settings screens only, it checks whether this app's name is shown, to require the parent PIN before it is turned off or uninstalled. This is evaluated on the device; only app names and durations are sent to our server.</p>
     <p><b>Location.</b> Off until a parent enables it on the child's phone behind the parent PIN, with a clear explanation and Android's permission. Sent only on a parent's request ("Where is the phone?"), kept for 24 hours.</p>
     <p><b>Sharing.</b> Only with parents in the same family, and with service providers that run the app: Supabase (database, sign-in and email; servers in Frankfurt, Germany), Google Firebase Cloud Messaging (notifications), and Google Play services (location, map and address lookup). No personal data about children is sent to AI services. We disclose data only if required by law.</p>
-    <p><b>Retention.</b> Location 24 hours; per-app usage 90 days; other data while the account exists. Deleting the account deletes the data immediately (provider backups expire after a limited time).</p>
+    <p><b>Retention.</b> Location 24 hours; per-app usage 90 days; activity photos 90 days, then deleted automatically; other data while the account exists. Deleting the account deletes the data immediately (provider backups expire after a limited time).</p>
     <p><b>Security.</b> Encrypted connections (HTTPS), per-family access rules in the database, hashed passwords and PINs, private photo storage.</p>
     <p><b>Your rights.</b> Access, correct or delete your and your child's data in the app (Account → Delete account) or by email; we reply within 30 days. Deletion without the app: <a href="../delete-account/">delete account page</a>. You may also contact the Israeli Privacy Protection Authority.</p>
   </div>
