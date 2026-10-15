@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>מחיקת חשבון · זמן מסך לילדים</title>
+<style>
+  :root { --bg: #fff8ee; --card: #ffffff; --text: #1f2a24; --muted: #6b746f; --primary: #16946a; --stroke: #efe4d3; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151a17; --card: #1f2622; --text: #eef2ef; --muted: #a3ada7; --primary: #4cc79b; --stroke: #2e3832; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.6 system-ui, -apple-system, "Segoe UI", Arial, sans-serif; }
+  main { max-width: 680px; margin: 0 auto; padding: 32px 16px 48px; }
+  .card { background: var(--card); border: 1px solid var(--stroke); border-radius: 20px; padding: 20px 22px; margin-bottom: 18px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 0 0 8px; }
+  p, li { margin: 6px 0; }
+  .muted { color: var(--muted); }
+  a { color: var(--primary); }
+  .mail { display: inline-block; margin: 8px 0; padding: 10px 18px; border-radius: 999px; background: var(--primary); color: #fff; text-decoration: none; font-weight: 600; }
+  [lang="en"] { direction: ltr; text-align: left; }
+  bdi { unicode-bidi: isolate; }
+</style>
+</head>
+<body>
+<main>
+  <h1>⏳ זמן מסך לילדים</h1>
+  <p class="muted">מחיקת חשבון ונתונים</p>
+
+  <div class="card">
+    <h2>הדרך המהירה: מתוך האפליקציה</h2>
+    <p>במצב הורה: <b>☰ חשבון ← מחיקת החשבון</b>, ואישור. המחיקה מיידית.</p>
+  </div>
+
+  <div class="card">
+    <h2>בלי האפליקציה: בקשה במייל</h2>
+    <p>שלחו מייל <b>מכתובת המייל של החשבון</b> אל:</p>
+    <a class="mail" href="mailto:leonyuristpro@gmail.com?subject=%D7%9E%D7%97%D7%99%D7%A7%D7%AA%20%D7%97%D7%A9%D7%91%D7%95%D7%9F"><bdi>leonyuristpro@gmail.com</bdi></a>
+    <p>בנושא: <b>מחיקת חשבון</b>. נמחק את החשבון תוך <b>7 ימים</b> ונשלח אישור במייל.</p>
+  </div>
+
+  <div class="card">
+    <h2>מה נמחק</h2>
+    <ul>
+      <li>חשבון ההורה (כתובת המייל והסיסמה).</li>
+      <li>אם אין הורה נוסף במשפחה: כל הילדים, החוקים, הפעילויות, ההיסטוריה, יתרות הדקות והתמונות.</li>
+      <li>אם יש הורה נוסף במשפחה: רק החשבון שלכם. הילדים והנתונים שלהם נשארים אצל ההורה השני.</li>
+    </ul>
+    <p>לא נשמר שום מידע אחרי המחיקה. הטלפון של הילד מפסיק להיות מחובר בסנכרון הבא.</p>
+  </div>
+
+  <div class="card" lang="en">
+    <h2>Delete your account (English)</h2>
+    <p><b>In the app:</b> parent mode → <b>☰ Account → Delete account</b>. Deletion is immediate.</p>
+    <p><b>Without the app:</b> email <a href="mailto:leonyuristpro@gmail.com?subject=Delete%20account">leonyuristpro@gmail.com</a> from your account's email address, with the subject "Delete account". We delete the account within 7 days and confirm by email.</p>
+    <p><b>What is deleted:</b> the parent account (email and password). If no other parent is in the family, also all children, rules, activities, history, minute balances and photos. If another parent is in the family, only your account is deleted and the children's data stays with them. No data is kept after deletion.</p>
+  </div>
+</main>
+</body>
+</html>
