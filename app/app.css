@@ -325,3 +325,8 @@ input.time {
 .period-nav { align-items: center; gap: 4px; }
 .period-dates { text-align: center; }
 .period-sum { text-align: center; margin-top: -6px; }
+
+/* Screen time: a long app name ends with "…" instead of pushing the page sideways */
+.usage-row .grow { min-width: 0; }
+.app-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.nowrap { white-space: nowrap; }

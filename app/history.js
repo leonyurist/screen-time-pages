@@ -144,7 +144,7 @@ function mistakeLine({ q, answer, given }, math, child) {
   if (math && !/[א-ת]/.test(q)) {
     return el("p", { class: "small" }, "• ", el("bdi", { dir: "ltr" }, `${q} = ${answer}`), ` (${word} `, el("bdi", { dir: "ltr" }, given), ")");
   }
-  return el("p", { class: "small" }, `• ${q}`, el("br"), `   התשובה: ${answer} · ${word}: ${given}`);
+  return el("p", { class: "small" }, `• ${q}`, el("br"), `   התשובה: ${answer} (${word} `, el("bdi", {}, given), ")");
 }
 
 function learningDetails(s, child) {
@@ -175,7 +175,7 @@ function learningView(container, app) {
     const sessions = await loadSessions(`child_id=eq.${child.id}&kind=eq.learning&started_at=gte.${from}&started_at=lt.${to}&order=started_at.desc&limit=1000`);
     return { children, child, learning: bySubject(sessions) };
   }, ({ children, child, learning }) => [
-    screenTitle("היסטוריה", "מה הילד למד באפליקציה, כמה זמן, ובמה היה קשה."),
+    screenTitle("היסטוריה", "מה הילד למד בלמידה החכמה, כמה זמן, ובמה היה קשה."),
     viewSwitch(container, app),
     childPicker(children, child, (id) => { app.childId = id; reload() }),
     !child ? noChildrenYet() : [
@@ -236,9 +236,9 @@ function statsView(container, app) {
       // The dates shown, with earlier and later periods around them. Data is kept for 90 days.
       // Hebrew order: "earlier" on the right, "later" on the left.
       el("div", { class: "row period-nav" },
-        el("button", { class: "btn plain small", disabled: (view.pagesBack + 1) * view.period >= 90, onclick: () => setPage(view.period, view.pagesBack + 1) }, "› קודם"),
+        el("button", { class: "btn plain small", disabled: (view.pagesBack + 1) * view.period >= 90, onclick: () => setPage(view.period, view.pagesBack + 1) }, "‹ קודם"),
         el("b", { class: "grow period-dates" }, el("bdi", { dir: "ltr" }, `${short(days[0].day)} – ${short(days[days.length - 1].day)}`)),
-        el("button", { class: "btn plain small", disabled: view.pagesBack === 0, onclick: () => setPage(view.period, view.pagesBack - 1) }, "הבא ‹")),
+        el("button", { class: "btn plain small", disabled: view.pagesBack === 0, onclick: () => setPage(view.period, view.pagesBack - 1) }, "הבא ›")),
       el("p", { class: "small muted period-sum" },
         `סה״כ ${formatDuration(total)}` + (usedDays > 0 ? ` · ממוצע ${formatDuration(Math.floor(total / usedDays))} ביום` : "")),
       usageChart(days, selected.day, view.period, (day) => { view.chosenDay = day; reload() }),
@@ -282,7 +282,7 @@ function appUsageRow(name, icon, seconds, maxSeconds) {
   return el("section", { class: "card usage-row" },
     appIcon(icon, 36),
     el("div", { class: "grow" },
-      el("div", { class: "row" }, el("span", { class: "grow medium" }, name), el("span", { class: "small" }, formatDuration(seconds))),
+      el("div", { class: "row" }, el("span", { class: "grow medium app-name", title: name }, name), el("span", { class: "small nowrap" }, formatDuration(seconds))),
       el("div", { class: "meter" }, el("span", { style: `width:${Math.max(2, Math.min(100, (seconds / maxSeconds) * 100))}%` }))));
 }
 
@@ -290,7 +290,7 @@ function appUsageRow(name, icon, seconds, maxSeconds) {
 function bySubject(sessions) {
   const groups = new Map();
   for (const s of sessions) {
-    const subject = s.subject.replace(/ באפליקציה$/, "").trim();
+    const subject = s.subject.replace(/ \(למידה חכמה\)$/, "").trim();
     if (!groups.has(subject)) groups.set(subject, []);
     groups.get(subject).push(s);
   }
@@ -319,7 +319,7 @@ const questions = (s) => (s.exercises === 1 ? (s.math ? "תרגיל אחד" : "�
 /** A card per subject; tap one to see what was hard. */
 function learningSummary(child, subjects) {
   return el("div", { class: "stack learning" },
-    subjects.length === 0 && el("p", { class: "muted small" }, `${child.name} לא ${byGender(child, "למד", "למדה")} באפליקציה בתקופה הזו.`),
+    subjects.length === 0 && el("p", { class: "muted small" }, `${child.name} לא ${byGender(child, "למד", "למדה")} בלמידה החכמה בתקופה הזו.`),
     subjects.map((s) => el("button", { type: "button", class: "card subject-card", onclick: () => subjectDetails(s, child) },
       el("div", { class: "row" },
         el("b", { class: "grow subject-name" }, `${s.emoji} ${s.subject}`),

@@ -43,7 +43,7 @@ export async function loadSessions(query) {
     const ratio = s.ratio ?? childRules?.ratio ?? 1;
     return {
       id: s.id,
-      subject: s.subject?.trim() ? s.subject : "שיעורי בית",
+      subject: s.subject?.trim() ? smartLearningName(s.subject) : "שיעורי בית",
       emoji: learning ? "🎓" : s.activities?.emoji || "📚",
       start: s.started_at,
       end: s.ended_at,
@@ -145,3 +145,6 @@ export function appIcon(base64, size = 32) {
   if (!base64) return el("span", { class: "app-icon empty", style: `width:${size}px;height:${size}px` });
   return el("img", { class: "app-icon", src: "data:image/png;base64," + base64.replace(/\s/g, ""), alt: "", width: size, height: size });
 }
+
+/** In-app learning is called "למידה חכמה": "לשון באפליקציה" (sessions saved before the name) → "לשון (למידה חכמה)". */
+export const smartLearningName = (subject) => (subject.endsWith(" באפליקציה") ? subject.replace(/ באפליקציה$/, " (למידה חכמה)") : subject);

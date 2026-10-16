@@ -170,7 +170,7 @@ export function rulesScreen(container, app) {
         settingRow("✋", "אישור הורה למשימות",
           rules.requireApproval ? "כל משימה שהילד מדווח מחכה לאישור שלך במסך \"אישורים\"" : "כבוי: הדקות נכנסות ליתרה מיד, בלי אישור",
           toggle(rules.requireApproval, (v) => save({ require_approval: v }), "אישור הורה למשימות")),
-        el("p", { class: "small muted" }, "🎓 למידה באפליקציה לא צריכה אישור: האפליקציה בודקת את התשובות, והדקות נכנסות ליתרה מיד."),
+        el("p", { class: "small muted" }, "🎓 למידה חכמה לא צריכה אישור: האפליקציה בודקת את התשובות, והדקות נכנסות ליתרה מיד."),
         rules.requireApproval && [
           el("hr"),
           el("b", { class: "block" }, "לאשר לבד משימה קצרה?"),
@@ -179,7 +179,7 @@ export function rulesScreen(container, app) {
             (v) => save({ auto_approve_up_to: v })),
         ]),
       el("section", { class: "card" },
-        el("b", { class: "block" }, "🎓 למידה באפליקציה: בונוס על תשובה נכונה"),
+        el("b", { class: "block" }, "🎓 למידה חכמה: בונוס על תשובה נכונה"),
         el("p", { class: "small muted" }, "כל תשובה נכונה מוסיפה עוד זמן מסך, מעבר לזמן הלמידה עצמו."),
         chips([[0, "בלי בונוס"], [5, "5 שניות"], [10, "10 שניות"], [15, "15 שניות"], [30, "30 שניות"]], rules.secondsPerCorrect,
           (v) => save({ seconds_per_correct: v }))),

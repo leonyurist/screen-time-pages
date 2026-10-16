@@ -5,7 +5,7 @@
 // service without sending the place to another company, so here the map shows it.)
 
 import * as api from "./api.js";
-import { el, openDialog, formatDateTime } from "./ui.js";
+import { el, openDialog, formatDateTime, nodes } from "./ui.js";
 
 async function latestLocation(childId) {
   const rows = await api.select(
@@ -39,7 +39,7 @@ export function locationDialog(child) {
 
   function draw() {
     const l = location;
-    content.replaceChildren(
+    content.replaceChildren(...nodes([
       waiting && !fresh && el("p", { class: "row" }, el("span", { class: "spinner" }), "מחפשים את הטלפון... זה לוקח עד חצי דקה."),
       !waiting && !fresh && el("p", { class: "danger-text small" },
         `הטלפון לא ענה. אולי הוא כבוי או בלי אינטרנט, או ש"איפה הטלפון?" לא הופעל בהגדרות ההורה בטלפון של ${child.name}.`),
@@ -50,7 +50,7 @@ export function locationDialog(child) {
       l && el("a", { class: "btn", href: `https://www.google.com/maps/search/?api=1&query=${l.lat},${l.lng}`, target: "_blank", rel: "noopener" }, "🗺️ פתיחה ב-Google Maps"),
       l && isIos() && el("a", { class: "btn outline", href: `https://maps.apple.com/?q=${encodeURIComponent(child.name)}&ll=${l.lat},${l.lng}`, target: "_blank", rel: "noopener" }, "🗺️ פתיחה במפות של Apple"),
       !l && !waiting && el("p", { class: "muted" }, "עוד אין מיקום מהטלפון הזה."),
-    );
+    ]));
   }
 
   (async () => {
