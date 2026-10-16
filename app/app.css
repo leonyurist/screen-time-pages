@@ -200,7 +200,7 @@ input.invalid { border-color: var(--danger); }
 .dialog:not([open]) { display: none; }
 .dialog::backdrop { background: rgba(0, 0, 0, 0.35); }
 .dialog-title { font-size: 21px; font-weight: 500; margin: 0 0 12px; }
-.dialog-body { overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-bottom: 6px; }
+.dialog-body { overflow-y: auto; min-height: 0; flex: 1 1 auto; display: flex; flex-direction: column; gap: 10px; padding-bottom: 6px; }
 .dialog-buttons { display: flex; justify-content: flex-end; gap: 4px; padding-top: 8px; flex-wrap: wrap; }
 .menu {
   position: fixed; z-index: 30; min-width: 220px; background: #fffaf3; border-radius: 6px; padding: 6px 0;
@@ -318,3 +318,10 @@ input.time {
 /* The ScreenDeal logo (icons/logo.svg), left-to-right inside the Hebrew page */
 .brand-logo { height: 28px; display: block; }
 .login-logo { width: 240px; max-width: 80%; margin: 8px auto 4px; display: block; }
+
+/* History: a day card opens on tap; the screen-time period row */
+.day-head { width: 100%; background: none; border: 0; text-align: start; font: inherit; color: inherit; cursor: pointer; gap: 8px; }
+.day-arrow { font-size: 18px; }
+.period-nav { align-items: center; gap: 4px; }
+.period-dates { text-align: center; }
+.period-sum { text-align: center; margin-top: -6px; }

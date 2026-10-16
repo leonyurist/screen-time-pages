@@ -9,8 +9,8 @@ export const DEFAULT_AVATAR = "🙂";
 // --- Which child ---
 
 export async function loadChildRefs() {
-  const rows = await api.select("children?select=id,name,avatar&order=created_at");
-  return rows.map((c) => ({ id: c.id, name: c.name, avatar: c.avatar || DEFAULT_AVATAR }));
+  const rows = await api.select("children?select=id,name,avatar,gender&order=created_at");
+  return rows.map((c) => ({ id: c.id, name: c.name, avatar: c.avatar || DEFAULT_AVATAR, gender: c.gender }));
 }
 
 /** The selected child, or the first one if nothing (or a deleted child) is selected. */
