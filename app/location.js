@@ -47,8 +47,9 @@ export function locationDialog(child) {
       l && el("b", {}, fresh ? "הטלפון נמצא:" : "המקום האחרון שהטלפון שלח:"),
       l && el("p", { class: "small muted" },
         `${ago(l.capturedAt)} (${formatDateTime(l.capturedAt)})` + (l.accuracy != null ? ` · דיוק של כ-${Math.trunc(l.accuracy)} מ׳` : "")),
-      l && el("a", { class: "btn", href: `https://www.google.com/maps/search/?api=1&query=${l.lat},${l.lng}`, target: "_blank", rel: "noopener" }, "🗺️ פתיחה ב-Google Maps"),
-      l && isIos() && el("a", { class: "btn outline", href: `https://maps.apple.com/?q=${encodeURIComponent(child.name)}&ll=${l.lat},${l.lng}`, target: "_blank", rel: "noopener" }, "🗺️ פתיחה במפות של Apple"),
+      l && el("p", { class: "small" }, "👇 כדי לראות איפה זה, לוחצים על הכפתור: המפה תיפתח בדיוק על המקום."),
+      l && el("a", { class: "btn", href: `https://www.google.com/maps/search/?api=1&query=${l.lat},${l.lng}`, target: "_blank", rel: "noopener" }, "🗺️ לראות על המפה (Google Maps)"),
+      l && isIos() && el("a", { class: "btn outline", href: `https://maps.apple.com/?q=${encodeURIComponent(child.name)}&ll=${l.lat},${l.lng}`, target: "_blank", rel: "noopener" }, "🗺️ לראות במפות של Apple"),
       !l && !waiting && el("p", { class: "muted" }, "עוד אין מיקום מהטלפון הזה."),
     ]));
   }
