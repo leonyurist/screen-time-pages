@@ -188,7 +188,7 @@ function loginScreen() {
     box.replaceChildren(
       el("div", { class: "logo" }, "⏳"),
       el("h1", {}, "ScreenDeal"),
-      el("p", { class: "muted" }, { phone: "כניסה לחשבון ההורה", email: "כניסה עם אימייל (חשבון מלפני הטלפון)", reset: "בחירת סיסמה חדשה" }[mode]),
+      el("p", { class: "muted" }, { phone: "כניסה או הרשמה", email: "כניסה עם אימייל (חשבון מלפני הטלפון)", reset: "בחירת סיסמה חדשה" }[mode]),
       ...body,
     );
   }
@@ -266,6 +266,8 @@ function phoneAndCode({ sendCode, verify, askConsent = false }) {
         },
       },
         el("label", { class: "field" }, el("span", {}, "מספר טלפון"), number),
+        // Signing up and signing in are the same steps: a new number gets an account after its code.
+        askConsent && el("p", { class: "small muted" }, "פעם ראשונה? אחרי הקוד ניצור לך חשבון חדש."),
         // Consent before an account is created (terms of use, privacy policy, age 18+).
         askConsent && el("label", { class: "check" }, agree,
           el("span", {}, "אני מעל גיל 18, הורה או אפוטרופוס, ומסכים/ה לתנאי השימוש ולמדיניות הפרטיות.")),

@@ -212,7 +212,7 @@ function hebrewError(code, body) {
   if (body.includes("phone_exists") || message.includes("Phone number already")) return PHONE_TAKEN;
   if (message.includes("already registered") || message.includes("already exists")) return "כבר יש חשבון עם האימייל הזה";
   if (message.includes("Invalid phone") || (lower.includes("phone number") && code === 400)) return "מספר הטלפון לא תקין";
-  if (lower.includes("sending") || (lower.includes("sms") && code >= 500)) return "שליחת הקוד נכשלה. אפשר לנסות שוב בעוד דקה";
+  if (lower.includes("sending") || lower.includes("hook") || (lower.includes("sms") && code >= 500)) return "שליחת הקוד נכשלה. אפשר לנסות שוב בעוד דקה";
   if (lower.includes("expired") || (lower.includes("invalid") && body.toLowerCase().includes("otp"))) return "הקוד שגוי או שפג תוקפו. אפשר לבקש קוד חדש";
   if (message.includes("Password should be")) return "הסיסמה קצרה מדי (לפחות 6 תווים)";
   if (message.includes("Email not confirmed")) return "צריך לאשר את האימייל לפני ההתחברות";
