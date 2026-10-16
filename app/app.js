@@ -9,6 +9,7 @@ import { activitiesScreen } from "./activities.js";
 import { historyScreen } from "./history.js";
 import { rulesScreen } from "./rules.js";
 import { accountMenu, familyDialog } from "./account.js";
+import * as push from "./push.js";
 
 const root = document.getElementById("root");
 
@@ -20,9 +21,15 @@ const TABS = [
   { id: "rules", label: "חוקים", icon: "⚙️", show: rulesScreen },
 ];
 
+/** The first screen: ?tab=approvals when a notification opened the site (sw.js), else the children. */
+function startTab() {
+  const tab = new URLSearchParams(location.search).get("tab");
+  return TABS.some((t) => t.id === tab) ? tab : "children";
+}
+
 /** Shared by the screens: the chosen child stays chosen on the others (like the Android app). */
 const app = {
-  tab: "children",
+  tab: startTab(),
   childId: null,
   installPrompt: null, // Android/desktop Chrome's install event, kept for the "install" button
   openFamily: () => familyDialog(() => { app.childId = null; showTab(app.tab) }),
@@ -45,7 +52,8 @@ function homeScreen() {
   const accountButton = el("button", { class: "btn plain", "aria-haspopup": "menu" }, "☰ חשבון");
   accountButton.onclick = () => accountMenu(accountButton, {
     onFamily: app.openFamily,
-    onSignOut: () => { api.signOut(); app.childId = null; render() },
+    onNotifications: push.notificationsDialog,
+    onSignOut: async () => { await push.turnOff().catch(() => {}); api.signOut(); app.childId = null; render() },
     onDeleted: () => { app.childId = null; render() },
     onInstall: isStandalone() ? null : installDialog,
   });
@@ -69,6 +77,7 @@ function homeScreen() {
   };
 
   showTab(app.tab);
+  push.refresh();
   return el("div", {},
     el("header", { class: "topbar" },
       el("b", { class: "brand" }, "⏳ ScreenDeal"),
@@ -271,6 +280,12 @@ window.addEventListener("beforeinstallprompt", (e) => {
   app.installPrompt = e;
 });
 
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+  // Tapping a notification while the site is open: sw.js asks to show that screen.
+  navigator.serviceWorker.addEventListener("message", (e) => {
+    if (e.data?.tab && api.isSignedIn() && TABS.some((t) => t.id === e.data.tab)) showTab(e.data.tab);
+  });
+}
 
 render();

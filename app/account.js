@@ -6,15 +6,17 @@ import { el, toast, openDialog } from "./ui.js";
 
 /**
  * The menu under "☰ חשבון", like the Android app's: the email, family, terms, privacy, sign out and
- * delete account. On the web there's also "add to the home screen" while the site isn't installed.
+ * delete account. On the web there's also "notifications" (push.js), and "add to the home screen"
+ * while the site isn't installed.
  */
-export function accountMenu(anchor, { onFamily, onSignOut, onDeleted, onInstall }) {
+export function accountMenu(anchor, { onFamily, onNotifications, onSignOut, onDeleted, onInstall }) {
   const close = () => { menu.remove(); document.removeEventListener("click", outside, true) };
   const outside = (e) => { if (!menu.contains(e.target) && e.target !== anchor) close() };
   const item = (text, onclick, cls = "") => el("button", { type: "button", class: "menu-item " + cls, onclick: () => { close(); onclick() } }, text);
   const menu = el("div", { class: "menu", role: "menu" },
     el("div", { class: "menu-item muted ltr-email" }, el("bdi", {}, api.email())),
     item("👨‍👩‍👧 בני המשפחה", onFamily),
+    item("🔔 התראות", onNotifications),
     onInstall && item("📲 הוספה למסך הבית", onInstall),
     el("a", { class: "menu-item", href: "../terms/", target: "_blank", onclick: () => close() }, "תנאי שימוש"),
     el("a", { class: "menu-item", href: "../privacy/", target: "_blank", onclick: () => close() }, "מדיניות פרטיות"),
