@@ -41,7 +41,27 @@ let showTab = () => {};
 function render() {
   const reset = new URLSearchParams(location.search).get("token_hash");
   if (reset) return root.replaceChildren(newPasswordScreen(reset));
-  root.replaceChildren(api.isSignedIn() ? homeScreen() : loginScreen());
+  if (!api.isSignedIn()) return root.replaceChildren(loginScreen());
+  if (api.phone()) return root.replaceChildren(homeScreen());
+  // Email accounts from before phones add one first (checked on the server, in case it was added
+  // on another device).
+  root.replaceChildren(el("div", { class: "login" }, el("p", { class: "muted" }, "טוען...")));
+  api.refreshUser().catch(() => {}).finally(() => {
+    if (!api.isSignedIn()) return render();
+    root.replaceChildren(api.phone() ? homeScreen() : addPhoneScreen({ onDone: render, onSignOut: signOut }));
+  });
+}
+
+async function signOut() {
+  await push.turnOff().catch(() => {});
+  api.signOut();
+  app.childId = null;
+  render();
+}
+
+/** "📱 Change phone number" from the account menu. */
+function changePhone() {
+  root.replaceChildren(addPhoneScreen({ onDone: render, onSignOut: signOut, onCancel: render }));
 }
 
 // --- Home: top bar, tab content, bottom tabs ---
@@ -53,7 +73,8 @@ function homeScreen() {
   accountButton.onclick = () => accountMenu(accountButton, {
     onFamily: app.openFamily,
     onNotifications: push.notificationsDialog,
-    onSignOut: async () => { await push.turnOff().catch(() => {}); api.signOut(); app.childId = null; render() },
+    onChangePhone: changePhone,
+    onSignOut: signOut,
     onDeleted: () => { app.childId = null; render() },
     onInstall: isStandalone() ? null : installDialog,
   });
@@ -86,23 +107,25 @@ function homeScreen() {
     content, tabsBar);
 }
 
-// --- Sign in / sign up / forgot password ---
+// --- Sign in: a phone and a code on WhatsApp (email + password for accounts from before) ---
 
 function loginScreen() {
-  let mode = "signin"; // "signup", or "reset" after the reset email was sent
+  let mode = "phone"; // "email" (accounts from before phones), or "reset" after the reset email was sent
   let error = null;
   let info = null;
   const box = el("div", { class: "login" });
   const mail = el("input", { type: "email", autocomplete: "username", dir: "ltr" });
   const pass = el("input", { type: "password", autocomplete: "current-password", dir: "ltr" });
-  const pass2 = el("input", { type: "password", autocomplete: "new-password", dir: "ltr" });
-  const agree = el("input", { type: "checkbox" });
   const submit = el("button", { class: "btn block", type: "submit" });
+  const phoneFlow = phoneAndCode({
+    sendCode: (p) => api.sendCode(p),
+    verify: async (p, code) => { await api.verifyCode(p, code); render() },
+    askConsent: true,
+  });
   let busy = false;
 
-  const check = () => { submit.disabled = busy || !mail.value.trim() || !pass.value || (mode === "signup" && !agree.checked) };
-  [mail, pass, pass2].forEach((i) => i.addEventListener("input", check));
-  agree.addEventListener("change", check);
+  const check = () => { submit.disabled = busy || !mail.value.trim() || !pass.value };
+  [mail, pass].forEach((i) => i.addEventListener("input", check));
 
   async function run(action) {
     busy = true;
@@ -122,68 +145,171 @@ function loginScreen() {
     error = null;
     info = null;
     pass.value = "";
-    pass2.value = "";
     draw();
   }
 
   function draw() {
-    const signup = mode === "signup";
-    pass.autocomplete = signup ? "new-password" : "current-password";
-    submit.textContent = busy ? "רגע..." : signup ? "הרשמה" : "התחברות";
+    submit.textContent = busy ? "רגע..." : "התחברות";
     mail.disabled = mode === "reset";
     check();
-    const form = el("form", {
-      onsubmit: (e) => {
-        e.preventDefault();
-        if (signup && pass.value !== pass2.value) { error = "הסיסמאות לא תואמות"; return draw() }
-        run(async () => {
-          if (signup) {
-            if (await api.signUp(mail.value, pass.value)) render();
-            else info = "נשלח אליך מייל לאישור. אחרי האישור אפשר להתחבר.";
-          } else {
-            await api.signIn(mail.value, pass.value);
-            render();
-          }
-        });
-      },
-    },
-      el("label", { class: "field" }, el("span", {}, "אימייל"), mail),
-      mode === "reset" && el("p", {}, "📧 שלחנו לך מייל עם קישור. פותחים את המייל בטלפון הזה, לוחצים על הקישור ובוחרים \"המשך באתר\": האתר ייפתח ויבקש סיסמה חדשה."),
-      mode !== "reset" && el("label", { class: "field" }, el("span", {}, "סיסמה"), pass),
-      signup && el("label", { class: "field" }, el("span", {}, "סיסמה שוב"), pass2),
-      // Consent before creating an account (terms of use, privacy policy, age 18+).
-      signup && el("label", { class: "check" }, agree,
-        el("span", {}, "אני מעל גיל 18, הורה או אפוטרופוס, ומסכים/ה לתנאי השימוש ולמדיניות הפרטיות.")),
-      signup && el("p", { class: "links-row" },
-        el("a", { href: "../terms/", target: "_blank" }, "תנאי השימוש"), el("a", { href: "../privacy/", target: "_blank" }, "מדיניות הפרטיות")),
-      error && el("p", { class: "error" }, error),
-      info && el("p", { class: "info" }, info),
-      mode !== "reset" && submit,
-    );
-    const links = mode === "signin" ? [
-      el("button", { class: "btn plain", type: "button", onclick: () => switchTo("signup") }, "אין לך חשבון? הרשמה"),
-      el("button", {
-        class: "btn plain muted-text", type: "button", onclick: () => {
-          if (!mail.value.trim()) { error = "קודם כותבים את האימייל"; return draw() }
-          run(async () => { await api.sendPasswordReset(mail.value); switchTo("reset") });
+    let body;
+    if (mode === "phone") {
+      body = [phoneFlow, el("div", { class: "links" },
+        el("button", { class: "btn plain muted-text", type: "button", onclick: () => switchTo("email") }, "נרשמת בעבר עם אימייל? כניסה עם אימייל"))];
+    } else {
+      const form = el("form", {
+        onsubmit: (e) => {
+          e.preventDefault();
+          run(async () => { await api.signIn(mail.value, pass.value); render() });
         },
-      }, "שכחתי סיסמה"),
-    ] : mode === "signup" ? [
-      el("button", { class: "btn plain", type: "button", onclick: () => switchTo("signin") }, "כבר יש לי חשבון: התחברות"),
-    ] : [
-      el("button", { class: "btn plain muted-text", type: "button", onclick: () => run(async () => { await api.sendPasswordReset(mail.value); info = "נשלח מייל חדש" }) }, "לא הגיע מייל? שליחה שוב"),
-      el("button", { class: "btn plain", type: "button", onclick: () => switchTo("signin") }, "חזרה להתחברות"),
-    ];
+      },
+        el("label", { class: "field" }, el("span", {}, "אימייל"), mail),
+        mode === "reset" && el("p", {}, "📧 שלחנו לך מייל עם קישור. פותחים את המייל בטלפון הזה, לוחצים על הקישור ובוחרים \"המשך באתר\": האתר ייפתח ויבקש סיסמה חדשה."),
+        mode === "email" && el("label", { class: "field" }, el("span", {}, "סיסמה"), pass),
+        error && el("p", { class: "error" }, error),
+        info && el("p", { class: "info" }, info),
+        mode === "email" && submit,
+        mode === "email" && el("p", { class: "small muted" }, "אחרי הכניסה נוסיף לחשבון את מספר הטלפון שלך, ומאז נכנסים רק עם הטלפון."),
+      );
+      const links = mode === "email" ? [
+        el("button", {
+          class: "btn plain muted-text", type: "button", onclick: () => {
+            if (!mail.value.trim()) { error = "קודם כותבים את האימייל"; return draw() }
+            run(async () => { await api.sendPasswordReset(mail.value); switchTo("reset") });
+          },
+        }, "שכחתי סיסמה"),
+        el("button", { class: "btn plain", type: "button", onclick: () => switchTo("phone") }, "חזרה לכניסה עם טלפון"),
+      ] : [
+        el("button", { class: "btn plain muted-text", type: "button", onclick: () => run(async () => { await api.sendPasswordReset(mail.value); info = "נשלח מייל חדש" }) }, "לא הגיע מייל? שליחה שוב"),
+        el("button", { class: "btn plain", type: "button", onclick: () => switchTo("email") }, "חזרה להתחברות"),
+      ];
+      body = [form, el("div", { class: "links" }, links)];
+    }
     box.replaceChildren(
       el("div", { class: "logo" }, "⏳"),
       el("h1", {}, "ScreenDeal"),
-      el("p", { class: "muted" }, { signin: "התחברות לחשבון ההורה", signup: "יצירת חשבון הורה", reset: "בחירת סיסמה חדשה" }[mode]),
-      form,
-      el("div", { class: "links" }, links),
+      el("p", { class: "muted" }, { phone: "כניסה לחשבון ההורה", email: "כניסה עם אימייל (חשבון מלפני הטלפון)", reset: "בחירת סיסמה חדשה" }[mode]),
+      ...body,
     );
   }
   draw();
   return box;
+}
+
+/**
+ * Two steps: the phone number, then the code that came on WhatsApp. Used for signing in and for
+ * adding or changing the account's phone. sendCode and verify get the number as "+972...".
+ */
+function phoneAndCode({ sendCode, verify, askConsent = false }) {
+  const box = el("div", {});
+  const number = el("input", { type: "tel", autocomplete: "tel", dir: "ltr", placeholder: "050-1234567" });
+  const code = el("input", { type: "text", inputmode: "numeric", autocomplete: "one-time-code", dir: "ltr", maxlength: "6", class: "code-input" });
+  const agree = el("input", { type: "checkbox" });
+  const sendButton = el("button", { class: "btn block", type: "submit" });
+  const okButton = el("button", { class: "btn block", type: "submit" });
+  const resend = el("button", { class: "btn plain muted-text", type: "button" });
+  let phone = null; // set once the code was sent
+  let busy = false;
+  let error = null;
+  let info = null;
+  let resendAt = 0;
+  let timer = null;
+
+  const check = () => {
+    sendButton.disabled = busy || !number.value.trim() || (askConsent && !agree.checked);
+    okButton.disabled = busy || code.value.length < 5;
+    const wait = Math.ceil((resendAt - Date.now()) / 1000);
+    resend.disabled = busy || wait > 0;
+    resend.textContent = wait > 0 ? `שליחה שוב (בעוד ${wait} שניות)` : "לא הגיע קוד? שליחה שוב";
+  };
+  number.addEventListener("input", check);
+  agree.addEventListener("change", check);
+  code.addEventListener("input", () => { code.value = code.value.replace(/\D/g, "").slice(0, 6); check() });
+
+  async function run(action) {
+    busy = true;
+    error = null;
+    info = null;
+    draw();
+    try {
+      await action();
+    } catch (e) {
+      error = e.message;
+    }
+    busy = false;
+    draw();
+  }
+
+  // "Send again" waits a minute, like Supabase does.
+  const send = (p) => run(async () => {
+    await sendCode(p);
+    phone = p;
+    code.value = "";
+    resendAt = Date.now() + 60_000;
+    clearInterval(timer);
+    timer = setInterval(() => { check(); if (Date.now() > resendAt) clearInterval(timer) }, 1000);
+  });
+
+  resend.onclick = () => { send(phone).then(() => { if (!error) { info = "שלחנו קוד חדש"; draw() } }) };
+
+  function draw() {
+    sendButton.textContent = busy ? "רגע..." : "שליחת קוד בוואטסאפ";
+    okButton.textContent = busy ? "רגע..." : "אישור";
+    check();
+    if (!phone) {
+      box.replaceChildren(el("form", {
+        onsubmit: (e) => {
+          e.preventDefault();
+          const p = api.normalizePhone(number.value);
+          if (!p) { error = "צריך מספר נייד ישראלי, למשל 050-1234567"; return draw() }
+          send(p);
+        },
+      },
+        el("label", { class: "field" }, el("span", {}, "מספר טלפון"), number),
+        // Consent before an account is created (terms of use, privacy policy, age 18+).
+        askConsent && el("label", { class: "check" }, agree,
+          el("span", {}, "אני מעל גיל 18, הורה או אפוטרופוס, ומסכים/ה לתנאי השימוש ולמדיניות הפרטיות.")),
+        askConsent && el("p", { class: "links-row" },
+          el("a", { href: "../terms/", target: "_blank" }, "תנאי השימוש"), el("a", { href: "../privacy/", target: "_blank" }, "מדיניות הפרטיות")),
+        error && el("p", { class: "error" }, error),
+        sendButton));
+    } else {
+      box.replaceChildren(el("form", {
+        onsubmit: (e) => { e.preventDefault(); run(() => verify(phone, code.value)) },
+      },
+        el("p", {}, "שלחנו קוד בוואטסאפ ל-", el("bdi", {}, api.formatPhone(phone))),
+        el("label", { class: "field" }, el("span", {}, "הקוד מהוואטסאפ"), code),
+        error && el("p", { class: "error" }, error),
+        info && el("p", { class: "info" }, info),
+        okButton),
+        el("div", { class: "links" }, resend,
+          el("button", { class: "btn plain muted-text", type: "button", onclick: () => { phone = null; error = null; info = null; draw() } }, "שינוי מספר")));
+      code.focus();
+    }
+  }
+  draw();
+  return box;
+}
+
+/**
+ * For accounts without a phone (they signed up with email): add one before going on. Also opened
+ * from the account menu to change the number (onCancel is then shown).
+ */
+function addPhoneScreen({ onDone, onSignOut, onCancel = null }) {
+  const changing = !!onCancel;
+  return el("div", { class: "login" },
+    el("div", { class: "logo" }, "📱"),
+    el("h1", {}, changing ? "החלפת מספר טלפון" : "מוסיפים מספר טלפון"),
+    el("p", { class: "muted" }, changing
+      ? "הקוד יישלח למספר החדש. אחרי האישור נכנסים רק עם המספר החדש."
+      : "מעכשיו נכנסים ל-ScreenDeal עם מספר הטלפון וקוד בוואטסאפ, בלי סיסמה. הילדים, המשפחה וההיסטוריה נשארים כמו שהם."),
+    phoneAndCode({
+      sendCode: (p) => api.requestPhoneChange(p),
+      verify: async (p, code) => { await api.verifyPhoneChange(p, code); onDone() },
+    }),
+    el("div", { class: "links" }, changing
+      ? el("button", { class: "btn plain", type: "button", onclick: onCancel }, "ביטול")
+      : el("button", { class: "btn plain muted-text", type: "button", onclick: onSignOut }, "התנתקות")));
 }
 
 /** Opened by the link in the reset email: signs in from the link, then asks for a new password. */

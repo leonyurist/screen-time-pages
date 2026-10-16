@@ -5,16 +5,17 @@ import * as api from "./api.js";
 import { el, toast, openDialog } from "./ui.js";
 
 /**
- * The menu under "☰ חשבון", like the Android app's: the email, family, terms, privacy, sign out and
+ * The menu under "☰ חשבון", like the Android app's: the phone (or email), change number, family, terms, privacy, sign out and
  * delete account. On the web there's also "notifications" (push.js), and "add to the home screen"
  * while the site isn't installed.
  */
-export function accountMenu(anchor, { onFamily, onNotifications, onSignOut, onDeleted, onInstall }) {
+export function accountMenu(anchor, { onFamily, onChangePhone, onNotifications, onSignOut, onDeleted, onInstall }) {
   const close = () => { menu.remove(); document.removeEventListener("click", outside, true) };
   const outside = (e) => { if (!menu.contains(e.target) && e.target !== anchor) close() };
   const item = (text, onclick, cls = "") => el("button", { type: "button", class: "menu-item " + cls, onclick: () => { close(); onclick() } }, text);
   const menu = el("div", { class: "menu", role: "menu" },
-    el("div", { class: "menu-item muted ltr-email" }, el("bdi", {}, api.email())),
+    el("div", { class: "menu-item muted ltr-email" }, el("bdi", {}, api.accountLabel())),
+    item("📱 החלפת מספר טלפון", onChangePhone),
     item("👨‍👩‍👧 בני המשפחה", onFamily),
     item("🔔 התראות", onNotifications),
     onInstall && item("📲 הוספה למסך הבית", onInstall),
@@ -35,15 +36,16 @@ export function accountMenu(anchor, { onFamily, onNotifications, onSignOut, onDe
  * (type a code you got). [onFamilyChanged] reloads the screens after joining.
  */
 export function familyDialog(onFamilyChanged) {
-  const me = api.email();
+  const me = api.accountLabel();
   const members = el("div", {}, el("p", { class: "muted" }, "טוען..."));
   const invite = el("div", {});
   const join = el("div", { class: "stack" });
 
-  api.select("family_members?select=joined_at,parents(email)&order=joined_at").then((rows) => {
-    let emails = rows.map((r) => r.parents?.email).filter(Boolean);
-    if (!emails.length) emails = [me];
-    members.replaceChildren(...emails.map((e) => el("p", {}, "• ", el("bdi", {}, e), e === me ? " (את/ה)" : "")));
+  // Each parent by phone ("050-123-4567"), or by email if they have no phone yet.
+  api.select("family_members?select=joined_at,parents(email,phone)&order=joined_at").then((rows) => {
+    let labels = rows.map((r) => (r.parents?.phone ? api.formatPhone(r.parents.phone) : r.parents?.email)).filter(Boolean);
+    if (!labels.length) labels = [me];
+    members.replaceChildren(...labels.map((m) => el("p", {}, "• ", el("bdi", {}, m), m === me ? " (את/ה)" : "")));
   }).catch((e) => members.replaceChildren(el("p", { class: "danger-text" }, e.message)));
 
   invite.append(el("button", {
@@ -124,7 +126,7 @@ const CONFIRM_WORD = "מחק";
  * parent is in the family), and asks the parent to type a word so it can't happen by mistake.
  */
 function deleteAccountDialog(onDeleted) {
-  const me = api.email();
+  const me = api.accountLabel();
   const what = el("div", {}, el("p", { class: "muted" }, "בודקים..."));
   const typed = el("input", { type: "text" });
   const error = el("p", { class: "danger-text small" });

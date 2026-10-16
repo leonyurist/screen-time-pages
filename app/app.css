@@ -101,7 +101,7 @@ main > * { margin-top: 0; margin-bottom: 0; }
 label.field { display: block; }
 label.field > span { display: block; font-size: 14px; color: var(--muted); margin-bottom: 4px; }
 .hint { display: block; font-size: 13px; color: var(--muted); margin-top: 4px; min-height: 1em; }
-input[type=email], input[type=password], input[type=text], input[type=search], input[type=number] {
+input[type=email], input[type=tel], input[type=password], input[type=text], input[type=search], input[type=number] {
   width: 100%; min-height: 52px; padding: 10px 14px; border-radius: 12px;
   border: 1px solid #c9d3cd; background: #fff; font-size: 17px;
 }
@@ -311,3 +311,6 @@ input.time {
   opacity: 0; transform: translateY(10px); transition: opacity 0.2s, transform 0.2s; pointer-events: none;
 }
 #toast.show { opacity: 1; transform: none; }
+
+/* The code from WhatsApp (app.js, phoneAndCode) */
+.code-input { font-size: 1.4rem; letter-spacing: 0.3em; text-align: center; }
