@@ -16,9 +16,9 @@ const root = document.getElementById("root");
 const TABS = [
   { id: "children", label: "ילדים", icon: "👨‍👩‍👧", show: childrenScreen },
   { id: "approvals", label: "אישורים", icon: "✅", show: approvalsScreen },
-  { id: "activities", label: "פעילויות", icon: "⭐", show: activitiesScreen },
+  { id: "activities", label: "משימות", icon: "⭐", show: activitiesScreen },
   { id: "history", label: "היסטוריה", icon: "📅", show: historyScreen },
-  { id: "rules", label: "חוקים", icon: "⚙️", show: rulesScreen },
+  { id: "rules", label: "הגדרות", icon: "⚙️", show: rulesScreen },
 ];
 
 /** The first screen: ?tab=approvals when a notification opened the site (sw.js), else the children. */
@@ -101,7 +101,7 @@ function homeScreen() {
   push.refresh();
   return el("div", {},
     el("header", { class: "topbar" },
-      el("b", { class: "brand" }, "⏳ ScreenDeal"),
+      el("span", { class: "brand" }, el("img", { src: "icons/logo.svg", alt: "ScreenDeal", class: "brand-logo" })),
       el("button", { class: "btn plain", onclick: () => showTab(app.tab) }, "🔄 רענון"),
       accountButton),
     content, tabsBar);
@@ -111,8 +111,7 @@ function homeScreen() {
 
 function loginScreen() {
   return el("div", { class: "login" },
-    el("div", { class: "logo" }, "⏳"),
-    el("h1", {}, "ScreenDeal"),
+    el("img", { src: "icons/logo.svg", alt: "ScreenDeal", class: "login-logo" }),
     el("p", { class: "muted" }, "כניסה או הרשמה"),
     phoneAndCode({
       sendCode: (p) => api.sendCode(p),

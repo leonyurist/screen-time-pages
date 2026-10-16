@@ -80,7 +80,7 @@ export function childrenScreen(container, app, cached) {
     onSetPin: (child) => pinDialog(child, reload),
     onNewCode: (child) => confirmDialog(`קוד שיוך חדש ל${child.name}?`, "הטלפון שמחובר עכשיו יתנתק, ויהיה צריך להקליד בו את הקוד החדש.", "קוד חדש",
       () => runAction(() => api.rpc("new_pairing_code", { p_child: child.id }), "נוצר קוד חדש", reload)),
-    onDelete: (child) => confirmDialog(`למחוק את ${child.name}?`, `כל הנתונים של ${child.name} יימחקו: יתרה, היסטוריה, פעילויות וחוקים. אי אפשר לבטל.`, "מחיקה",
+    onDelete: (child) => confirmDialog(`למחוק את ${child.name}?`, `כל הנתונים של ${child.name} יימחקו: יתרה, היסטוריה, משימות והגדרות. אי אפשר לבטל.`, "מחיקה",
       () => runAction(() => api.remove("children", `id=eq.${child.id}`), `${child.name} נמחק/ה`, reload)),
     onToggle: (child) => { openCards.has(child.id) ? openCards.delete(child.id) : openCards.add(child.id); childrenScreen(container, app, current) },
   };
@@ -163,7 +163,7 @@ function phoneModeBox(child, onLock) {
   const explain = {
     locked: `כל האפליקציות חסומות, חוץ מטלפון ו"תמיד מותרות" · ${until}`,
     free: `אפשר להשתמש בהכול, והדקות לא יורדות · ${until}`,
-  }[child.lockMode] || "לפי היתרה והחוקים";
+  }[child.lockMode] || "לפי היתרה וההגדרות";
   const modes = [["normal", "רגיל"], ["locked", "🔒 נעול"], ["free", "🔓 חופשי"]];
   return el("div", { class: `mode-box ${child.lockMode}` },
     el("b", { class: "small" }, "מצב הטלפון"),

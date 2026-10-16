@@ -1,4 +1,4 @@
-// "חוקים": parent approval, daily cap, lock hours for each day, and each app's type and daily limit.
+// "הגדרות": parent approval, daily cap, lock hours for each day, and each app's type and daily limit.
 // Changes are saved right away and reach the child's phone within seconds. Ported from RulesScreen.kt.
 
 import * as api from "./api.js";
@@ -89,13 +89,14 @@ export function rulesScreen(container, app) {
     const child = pick(children, app.childId);
     if (!child) return { children, child };
     const [r, apps] = await Promise.all([
-      api.select(`rules?select=require_approval,daily_cap,auto_approve_up_to,app_types,lock_schedule,app_limits&child_id=eq.${child.id}`),
+      api.select(`rules?select=require_approval,daily_cap,auto_approve_up_to,seconds_per_correct,app_types,lock_schedule,app_limits&child_id=eq.${child.id}`),
       api.select(`device_apps?select=package,label,icon&child_id=eq.${child.id}`),
     ]);
     const rules = r[0] && {
       requireApproval: r[0].require_approval,
       dailyCap: r[0].daily_cap,
       autoApproveUpTo: r[0].auto_approve_up_to,
+      secondsPerCorrect: r[0].seconds_per_correct ?? 5,
       types: Object.fromEntries(Object.entries(r[0].app_types || {}).filter(([, t]) => TYPES.includes(t))),
       lockHours: parseSchedule(r[0].lock_schedule),
       appLimits: r[0].app_limits || {},
@@ -106,7 +107,7 @@ export function rulesScreen(container, app) {
     return { children, child, rules, installed, icons };
   }, ({ children, child, rules, installed, icons }) => {
     const top = [
-      screenTitle("חוקים", "השינויים נשמרים מיד ומגיעים לטלפון של הילד תוך כמה שניות."),
+      screenTitle("הגדרות", "השינויים נשמרים מיד ומגיעים לטלפון של הילד תוך כמה שניות."),
       childPicker(children, child, (id) => { app.childId = id; query = ""; reload() }),
     ];
     if (!child || !rules) return [...top, noChildrenYet()];
@@ -166,16 +167,22 @@ export function rulesScreen(container, app) {
       ...top,
       el("h2", { class: "section-title" }, "⏳ צבירת זמן מסך"),
       el("section", { class: "card" },
-        settingRow("✋", "אישור הורה לפעילויות",
-          rules.requireApproval ? "כל פעילות מחכה לאישור שלך במסך \"אישורים\"" : "כבוי: הדקות נכנסות ליתרה מיד, בלי אישור",
-          toggle(rules.requireApproval, (v) => save({ require_approval: v }), "אישור הורה לפעילויות")),
+        settingRow("✋", "אישור הורה למשימות",
+          rules.requireApproval ? "כל משימה שהילד מדווח מחכה לאישור שלך במסך \"אישורים\"" : "כבוי: הדקות נכנסות ליתרה מיד, בלי אישור",
+          toggle(rules.requireApproval, (v) => save({ require_approval: v }), "אישור הורה למשימות")),
+        el("p", { class: "small muted" }, "🎓 למידה באפליקציה לא צריכה אישור: האפליקציה בודקת את התשובות, והדקות נכנסות ליתרה מיד."),
         rules.requireApproval && [
           el("hr"),
-          el("b", { class: "block" }, "אישור אוטומטי לפעילות קצרה"),
-          el("p", { class: "small muted" }, "פעילות עד האורך הזה תאושר לבד, בלי לחכות לך."),
-          chips([[0, "בלי"], [10, "10 דק׳"], [15, "15 דק׳"], [20, "20 דק׳"], [30, "30 דק׳"]], rules.autoApproveUpTo,
+          el("b", { class: "block" }, "לאשר לבד משימה קצרה?"),
+          el("p", { class: "small muted" }, "משימה קצרה עד הזמן שבוחרים תאושר לבד, בלי לחכות לך. \"לא\": כל משימה מחכה לאישור."),
+          chips([[0, "לא"], [10, "עד 10 דק׳"], [15, "עד 15 דק׳"], [20, "עד 20 דק׳"], [30, "עד 30 דק׳"]], rules.autoApproveUpTo,
             (v) => save({ auto_approve_up_to: v })),
         ]),
+      el("section", { class: "card" },
+        el("b", { class: "block" }, "🎓 למידה באפליקציה: בונוס על תשובה נכונה"),
+        el("p", { class: "small muted" }, "כל תשובה נכונה מוסיפה עוד זמן מסך, מעבר לזמן הלמידה עצמו."),
+        chips([[0, "בלי בונוס"], [5, "5 שניות"], [10, "10 שניות"], [15, "15 שניות"], [30, "30 שניות"]], rules.secondsPerCorrect,
+          (v) => save({ seconds_per_correct: v }))),
       dailyCapSection(rules.dailyCap, (v) => save({ daily_cap: v })),
 
       el("h2", { class: "section-title" }, "🌙 שעות נעילה"),

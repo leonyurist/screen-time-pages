@@ -1,5 +1,5 @@
 // "היסטוריה": two views, like the Android app (HistoryScreen.kt, StatsScreen.kt, LearningSummary.kt):
-// - "⭐ פעילויות": activities and minute gifts of the last 30 days, a card per day;
+// - "⭐ משימות": activities and minute gifts of the last 30 days, a card per day;
 // - "📊 זמן מסך": a bar per day (7 or 30 days, and earlier periods), the time in each app on the
 //   chosen day, and in-app learning by subject.
 
@@ -22,7 +22,7 @@ export function historyScreen(container, app) {
 /** "Activities | screen time" at the top of the history tab. */
 function viewSwitch(container, app) {
   return el("div", { class: "segmented" },
-    [[false, "⭐ פעילויות"], [true, "📊 זמן מסך"]].map(([stats, label]) =>
+    [[false, "⭐ משימות"], [true, "📊 זמן מסך"]].map(([stats, label]) =>
       el("button", { type: "button", "aria-pressed": String(view.stats === stats), onclick: () => { view.stats = stats; historyScreen(container, app) } }, label)));
 }
 
@@ -52,11 +52,11 @@ function activityHistory(container, app) {
       try { toast(await reviewSession(s, approve, minutes)); reload() } catch (e) { toast(e.message || "שגיאה") }
     });
     return [
-      screenTitle("היסטוריה", `כל הפעילויות של ${HISTORY_DAYS} הימים האחרונים.`),
+      screenTitle("היסטוריה", `כל המשימות של ${HISTORY_DAYS} הימים האחרונים.`),
       viewSwitch(container, app),
       childPicker(children, child, (id) => { app.childId = id; reload() }),
       !child ? noChildrenYet()
-        : sessions.length === 0 && gifts.length === 0 && el("p", { class: "muted" }, `${child.name} עוד לא סיים/ה פעילויות בתקופה הזו.`),
+        : sessions.length === 0 && gifts.length === 0 && el("p", { class: "muted" }, `${child.name} עוד לא סיים/ה משימות בתקופה הזו.`),
       [...days.keys()].sort().reverse().map((day) => dayCard(day, days.get(day), onReview)),
     ];
   });

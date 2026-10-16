@@ -314,3 +314,7 @@ input.time {
 
 /* The code from WhatsApp (app.js, phoneAndCode) */
 .code-input { font-size: 1.4rem; letter-spacing: 0.3em; text-align: center; }
+
+/* The ScreenDeal logo (icons/logo.svg), left-to-right inside the Hebrew page */
+.brand-logo { height: 28px; display: block; }
+.login-logo { width: 240px; max-width: 80%; margin: 8px auto 4px; display: block; }

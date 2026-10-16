@@ -28,8 +28,8 @@ export function approvalsScreen(container) {
       days.get(day).push(s);
     }
     return [
-      screenTitle("אישורים", "פעילויות שמחכות לאישור. כדי לוותר על אישור לילד מסוים, מבטלים את \"צריך אישור הורה\" במסך החוקים."),
-      pending.length === 0 && el("div", { class: "empty" }, el("div", { class: "big" }, "🎉"), el("p", { class: "muted" }, "אין פעילויות שמחכות לאישור")),
+      screenTitle("אישורים", "משימות שמחכות לאישור. כדי לוותר על אישור לילד מסוים, מבטלים את \"אישור הורה למשימות\" במסך ההגדרות."),
+      pending.length === 0 && el("div", { class: "empty" }, el("div", { class: "big" }, "🎉"), el("p", { class: "muted" }, "אין משימות שמחכות לאישור")),
       pending.map((s) => pendingCard(s, () => review(s, true), () => shortenDialog(s, (m) => review(s, true, m)), () => review(s, false))),
       recent.length > 0 && el("h2", { class: "section-title" }, "טופלו לאחרונה"),
       [...days.keys()].sort().reverse().map((day) => recentDayCard(day, days.get(day))),
