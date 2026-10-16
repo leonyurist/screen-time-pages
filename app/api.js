@@ -111,19 +111,6 @@ async function devMasterAddPhone(phoneNumber, code) {
   }
 }
 
-/** Sign-in for accounts from before phones (email + password). */
-export async function signIn(mail, password) {
-  saveSession(await send("POST", "/auth/v1/token?grant_type=password", { email: mail.trim(), password }));
-}
-
-
-/**
- * Emails the parent a link to choose a new password. The link opens the reset page, which offers
- * the Android app or this website (see ../reset/).
- */
-export async function sendPasswordReset(mail) {
-  await send("POST", "/auth/v1/recover", { email: mail.trim() });
-}
 
 /** Signs in with the one-time code from the reset link (?token_hash=...). */
 export async function signInFromResetCode(tokenHash, type = "recovery") {

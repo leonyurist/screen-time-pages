@@ -107,93 +107,18 @@ function homeScreen() {
     content, tabsBar);
 }
 
-// --- Sign in: a phone and a code on WhatsApp (email + password for accounts from before) ---
+// --- Sign in and sign up in one: a phone and a code on WhatsApp (a new number gets an account) ---
 
 function loginScreen() {
-  let mode = "phone"; // "email" (accounts from before phones), or "reset" after the reset email was sent
-  let error = null;
-  let info = null;
-  const box = el("div", { class: "login" });
-  const mail = el("input", { type: "email", autocomplete: "username", dir: "ltr" });
-  const pass = el("input", { type: "password", autocomplete: "current-password", dir: "ltr" });
-  const submit = el("button", { class: "btn block", type: "submit" });
-  const phoneFlow = phoneAndCode({
-    sendCode: (p) => api.sendCode(p),
-    verify: async (p, code) => { await api.verifyCode(p, code); render() },
-    askConsent: true,
-  });
-  let busy = false;
-
-  const check = () => { submit.disabled = busy || !mail.value.trim() || !pass.value };
-  [mail, pass].forEach((i) => i.addEventListener("input", check));
-
-  async function run(action) {
-    busy = true;
-    error = null;
-    draw();
-    try {
-      await action();
-    } catch (e) {
-      error = e.message;
-    }
-    busy = false;
-    draw();
-  }
-
-  function switchTo(m) {
-    mode = m;
-    error = null;
-    info = null;
-    pass.value = "";
-    draw();
-  }
-
-  function draw() {
-    submit.textContent = busy ? "רגע..." : "התחברות";
-    mail.disabled = mode === "reset";
-    check();
-    let body;
-    if (mode === "phone") {
-      body = [phoneFlow, el("div", { class: "links" },
-        el("button", { class: "btn plain muted-text", type: "button", onclick: () => switchTo("email") }, "נרשמת בעבר עם אימייל? כניסה עם אימייל"))];
-    } else {
-      const form = el("form", {
-        onsubmit: (e) => {
-          e.preventDefault();
-          run(async () => { await api.signIn(mail.value, pass.value); render() });
-        },
-      },
-        el("label", { class: "field" }, el("span", {}, "אימייל"), mail),
-        mode === "reset" && el("p", {}, "📧 שלחנו לך מייל עם קישור. פותחים את המייל בטלפון הזה, לוחצים על הקישור ובוחרים \"המשך באתר\": האתר ייפתח ויבקש סיסמה חדשה."),
-        mode === "email" && el("label", { class: "field" }, el("span", {}, "סיסמה"), pass),
-        error && el("p", { class: "error" }, error),
-        info && el("p", { class: "info" }, info),
-        mode === "email" && submit,
-        mode === "email" && el("p", { class: "small muted" }, "אחרי הכניסה נוסיף לחשבון את מספר הטלפון שלך, ומאז נכנסים רק עם הטלפון."),
-      );
-      const links = mode === "email" ? [
-        el("button", {
-          class: "btn plain muted-text", type: "button", onclick: () => {
-            if (!mail.value.trim()) { error = "קודם כותבים את האימייל"; return draw() }
-            run(async () => { await api.sendPasswordReset(mail.value); switchTo("reset") });
-          },
-        }, "שכחתי סיסמה"),
-        el("button", { class: "btn plain", type: "button", onclick: () => switchTo("phone") }, "חזרה לכניסה עם טלפון"),
-      ] : [
-        el("button", { class: "btn plain muted-text", type: "button", onclick: () => run(async () => { await api.sendPasswordReset(mail.value); info = "נשלח מייל חדש" }) }, "לא הגיע מייל? שליחה שוב"),
-        el("button", { class: "btn plain", type: "button", onclick: () => switchTo("email") }, "חזרה להתחברות"),
-      ];
-      body = [form, el("div", { class: "links" }, links)];
-    }
-    box.replaceChildren(
-      el("div", { class: "logo" }, "⏳"),
-      el("h1", {}, "ScreenDeal"),
-      el("p", { class: "muted" }, { phone: "כניסה או הרשמה", email: "כניסה עם אימייל (חשבון מלפני הטלפון)", reset: "בחירת סיסמה חדשה" }[mode]),
-      ...body,
-    );
-  }
-  draw();
-  return box;
+  return el("div", { class: "login" },
+    el("div", { class: "logo" }, "⏳"),
+    el("h1", {}, "ScreenDeal"),
+    el("p", { class: "muted" }, "כניסה או הרשמה"),
+    phoneAndCode({
+      sendCode: (p) => api.sendCode(p),
+      verify: async (p, code) => { await api.verifyCode(p, code); render() },
+      askConsent: true,
+    }));
 }
 
 /**
