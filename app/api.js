@@ -1,5 +1,5 @@
 // The parent's connection to Supabase, the same calls as the Android app's ParentApi.kt:
-// sign-in with a phone and a code on WhatsApp (email + password for accounts from before), then
+// sign-in with a phone and a code by SMS (email + password for accounts from before), then
 // reading/writing the family's data through the REST API.
 // The database's own rules (RLS) make sure a parent only sees their own children.
 
@@ -57,20 +57,14 @@ export function formatPhone(p) {
 
 // --- Account ---
 
-/** Sends a sign-in code on WhatsApp. A number we don't know gets a new account once the code is checked. */
+/** Sends a sign-in code by SMS. A number we don't know gets a new account once the code is checked. */
 export async function sendCode(phoneNumber) {
   await send("POST", "/auth/v1/otp", { phone: phoneNumber, create_user: true });
 }
 
-/** Checks the code from WhatsApp and signs in. */
+/** Checks the code from the SMS and signs in. */
 export async function verifyCode(phoneNumber, code) {
-  let res;
-  try {
-    res = await send("POST", "/auth/v1/verify", { type: "sms", phone: phoneNumber, token: code.trim() });
-  } catch (e) {
-    res = await devMasterLogin(phoneNumber, code);
-    if (!res) throw e;
-  }
+  const res = await send("POST", "/auth/v1/verify", { type: "sms", phone: phoneNumber, token: code.trim() });
   saveSession(res);
 }
 
@@ -79,12 +73,8 @@ export const requestPhoneChange = async (phoneNumber) => send("PUT", "/auth/v1/u
 
 /** Checks the code sent to the new number; from now on the parent can sign in with it. */
 export async function verifyPhoneChange(phoneNumber, code) {
-  try {
-    const res = await send("POST", "/auth/v1/verify", { type: "phone_change", phone: phoneNumber, token: code.trim() }, await accessToken());
-    if (res?.access_token) saveSession(res);
-  } catch (e) {
-    if (!(await devMasterAddPhone(phoneNumber, code))) throw e;
-  }
+  const res = await send("POST", "/auth/v1/verify", { type: "phone_change", phone: phoneNumber, token: code.trim() }, await accessToken());
+  if (res?.access_token) saveSession(res);
   await refreshUser();
 }
 
@@ -93,22 +83,6 @@ export async function refreshUser() {
   const user = await send("GET", "/auth/v1/user", null, await accessToken());
   const s = loadSession();
   if (s) localStorage.setItem(SESSION_KEY, JSON.stringify({ ...s, email: user.email || "", phone: user.phone || "" }));
-}
-
-// DEVELOPMENT ONLY — remove both before the Google Play release (SPEC.md in the app repo, stage ט7):
-// the master code from the dev-login function, tried only after the real code check failed.
-async function devMasterLogin(phoneNumber, code) {
-  try { return await send("POST", "/functions/v1/dev-login", { phone: phoneNumber, code: code.trim() }) } catch { return null }
-}
-
-async function devMasterAddPhone(phoneNumber, code) {
-  try {
-    await send("POST", "/functions/v1/dev-login", { action: "add_phone", phone: phoneNumber, code: code.trim() }, await accessToken());
-    return true;
-  } catch (e) {
-    if (e.message === PHONE_TAKEN) throw e;
-    return false;
-  }
 }
 
 

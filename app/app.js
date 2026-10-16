@@ -107,7 +107,7 @@ function homeScreen() {
     content, tabsBar);
 }
 
-// --- Sign in and sign up in one: a phone and a code on WhatsApp (a new number gets an account) ---
+// --- Sign in and sign up in one: a phone and a code by SMS (a new number gets an account) ---
 
 function loginScreen() {
   return el("div", { class: "login" },
@@ -121,7 +121,7 @@ function loginScreen() {
 }
 
 /**
- * Two steps: the phone number, then the code that came on WhatsApp. Used for signing in and for
+ * Two steps: the phone number, then the code that came by SMS. Used for signing in and for
  * adding or changing the account's phone. sendCode and verify get the number as "+972...".
  */
 function phoneAndCode({ sendCode, verify, askConsent = false }) {
@@ -177,7 +177,7 @@ function phoneAndCode({ sendCode, verify, askConsent = false }) {
   resend.onclick = () => { send(phone).then(() => { if (!error) { info = "שלחנו קוד חדש"; draw() } }) };
 
   function draw() {
-    sendButton.textContent = busy ? "רגע..." : "שליחת קוד בוואטסאפ";
+    sendButton.textContent = busy ? "רגע..." : "שליחת קוד ב-SMS";
     okButton.textContent = busy ? "רגע..." : "אישור";
     check();
     if (!phone) {
@@ -203,8 +203,8 @@ function phoneAndCode({ sendCode, verify, askConsent = false }) {
       box.replaceChildren(el("form", {
         onsubmit: (e) => { e.preventDefault(); run(() => verify(phone, code.value)) },
       },
-        el("p", {}, "שלחנו קוד בוואטסאפ ל-", el("bdi", {}, api.formatPhone(phone))),
-        el("label", { class: "field" }, el("span", {}, "הקוד מהוואטסאפ"), code),
+        el("p", {}, "שלחנו קוד ב-SMS ל-", el("bdi", {}, api.formatPhone(phone))),
+        el("label", { class: "field" }, el("span", {}, "הקוד מה-SMS"), code),
         error && el("p", { class: "error" }, error),
         info && el("p", { class: "info" }, info),
         okButton),
@@ -228,7 +228,7 @@ function addPhoneScreen({ onDone, onSignOut, onCancel = null }) {
     el("h1", {}, changing ? "החלפת מספר טלפון" : "מוסיפים מספר טלפון"),
     el("p", { class: "muted" }, changing
       ? "הקוד יישלח למספר החדש. אחרי האישור נכנסים רק עם המספר החדש."
-      : "מעכשיו נכנסים ל-ScreenDeal עם מספר הטלפון וקוד בוואטסאפ, בלי סיסמה. הילדים, המשפחה וההיסטוריה נשארים כמו שהם."),
+      : "מעכשיו נכנסים ל-ScreenDeal עם מספר הטלפון וקוד ב-SMS, בלי סיסמה. הילדים, המשפחה וההיסטוריה נשארים כמו שהם."),
     phoneAndCode({
       sendCode: (p) => api.requestPhoneChange(p),
       verify: async (p, code) => { await api.verifyPhoneChange(p, code); onDone() },
