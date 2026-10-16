@@ -1,0 +1,17 @@
+{
+  "name": "ScreenDeal להורים",
+  "short_name": "ScreenDeal",
+  "description": "ניהול זמן המסך של הילדים: יתרה, אישורים, חוקים ונעילה.",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fff8ee",
+  "theme_color": "#16946a",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

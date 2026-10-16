@@ -19,11 +19,13 @@
     <p>אם האפליקציה לא נפתחה לבד, לוחצים על הכפתור:</p>
     <a class="open" id="open" href="#">פתיחת ScreenDeal ובחירת סיסמה</a>
     <p class="muted">צריך לפתוח את הקישור בטלפון שבו משתמשים ב-ScreenDeal <b>כהורה</b>. בטלפון של הילד האפליקציה לא מציגה את מסכי ההורה.</p>
+    <p>משתמשים ב-ScreenDeal באתר? <a id="web-android" href="#">המשך באתר</a></p>
   </div>
   <div class="card" id="computer" hidden>
-    <h2>פותחים את המייל בטלפון</h2>
-    <p>הקישור לבחירת סיסמה חדשה עובד רק בטלפון אנדרואיד שבו מותקנת אפליקציית ScreenDeal ומשתמשים בה כהורה.</p>
-    <p>פותחים את המייל "איפוס סיסמה ל-ScreenDeal" בטלפון הזה, ולוחצים שוב על הכפתור.</p>
+    <h2>בחירת סיסמה חדשה באתר</h2>
+    <p>משתמשים ב-ScreenDeal באתר (למשל באייפון)? ממשיכים כאן:</p>
+    <a class="open" id="web" href="#">המשך באתר ובחירת סיסמה</a>
+    <p class="muted">משתמשים באפליקציה באנדרואיד? פותחים את המייל "איפוס סיסמה ל-ScreenDeal" בטלפון האנדרואיד, ולוחצים שוב על הכפתור.</p>
   </div>
   <div class="card" id="bad" hidden>
     <h2>הקישור לא שלם</h2>
@@ -35,6 +37,10 @@
   var q = new URLSearchParams(location.search);
   var token = q.get("token_hash"), type = q.get("type") || "recovery";
   var android = /Android/i.test(navigator.userAgent);
+  // The same code also works on the website (../app/), for parents without the Android app.
+  var web = "../app/?token_hash=" + encodeURIComponent(token || "") + "&type=" + encodeURIComponent(type);
+  document.getElementById("web").href = web;
+  document.getElementById("web-android").href = web;
   if (!token) {
     document.getElementById("phone").hidden = true;
     document.getElementById("bad").hidden = false;
