@@ -83,6 +83,9 @@ export function childrenScreen(container, app, cached) {
     onLock: (child, mode) => (mode === "normal" ? setLock(child, mode, null) : lockDialog(child, mode, (until) => setLock(child, mode, until))),
     onMinutes: (child) => minutesDialog(child, reload),
     onLocate: (child) => locationDialog(child),
+    onRing: (child) => confirmDialog(`🔔 להשמיע צליל בטלפון של ${child.name}?`,
+      "הטלפון יצלצל בקול חזק כ-30 שניות, גם אם הוא בשקט או ברטט. מתאים כשהטלפון אבד בבית. צריך שיהיה בו אינטרנט. בטלפון אפשר לעצור את הצליל מההתראה.",
+      "להשמיע", () => runAction(() => api.rpc("request_ring", { p_child: child.id }), `הצליל נשלח לטלפון של ${child.name} 🔔`)),
     onEdit: (child) => childDetailsDialog(`פרטי ${child.name}`, child, (name, gender, year) =>
       runAction(() => api.update("children", `id=eq.${child.id}`, { name, gender, birth_year: year }), "הפרטים נשמרו", reload)),
     onSetPin: (child) => pinDialog(child, reload),
@@ -157,7 +160,8 @@ function childCard(child, expanded, a) {
     // The two everyday actions, side by side and alike.
     el("div", { class: "tiles" },
       actionTile("🎁", "להוסיף דקות", "או להוריד", () => a.onMinutes(child)),
-      paired && actionTile("📍", "איפה הטלפון?", "במפה", () => a.onLocate(child))),
+      paired && actionTile("📍", "איפה הטלפון?", "במפה", () => a.onLocate(child)),
+      paired && actionTile("🔔", "להשמיע צליל", "למצוא טלפון", () => a.onRing(child))),
     // The actions parents rarely need, behind one clearly labeled button.
     el("button", { class: "btn outline block", onclick: () => childSettingsDialog(child, paired, a) }, `⚙️ הגדרות של ${child.name}`),
   );
