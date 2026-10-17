@@ -206,13 +206,13 @@ export function rulesScreen(container, app) {
       dailyCapSection(rules.dailyCap, (v) => save({ daily_cap: v })),
 
       el("h2", { class: "section-title" }, "⏰ זמן מסך יומי"),
-      weekMinutesCard("🌅", "זמן התחלה לכל יום", `בכל יום ב-00:00 ${child.name} מקבל/ת את הזמן הזה, בנוסף למה שיצבור מלמידה ומשימות.`,
+      weekMinutesCard("🌅", "זמן התחלה לכל יום", `כל בוקר הזמן מתמלא בחזרה. זמן שלא נוצל לא נצבר. דקות ש${child.name} הרוויח/ה נשמרות.`,
         "בלי זמן התחלה: הילד מתחיל כל יום עם מה שנשאר לו", rules.dailyAllowance, (m) => save({ daily_allowance: m })),
       el("section", { class: "card" },
-        settingRow("🌙", "איפוס היתרה בסוף היום",
-          rules.resetDaily ? "בחצות היתרה מתאפסת, ואז מתווסף זמן ההתחלה של היום החדש. מה שלא נוצל לא עובר למחר, כולל דקות מלמידה ומתנות"
-            : "כבוי: מה שנשאר ביתרה עובר למחר",
-          toggle(rules.resetDaily, (v) => save({ reset_daily: v }), "איפוס היתרה בסוף היום"))),
+        settingRow("🌙", "דקות שהרוויח נמחקות בסוף היום",
+          rules.resetDaily ? "בחצות נמחקות גם הדקות שהילד הרוויח (למידה, משימות ומתנות), ונשאר רק הזמן היומי של היום החדש"
+            : "כבוי: דקות שהילד הרוויח עוברות למחר",
+          toggle(rules.resetDaily, (v) => save({ reset_daily: v }), "דקות שהרוויח נמחקות בסוף היום"))),
       weekMinutesCard("⏱️", "זמן מסך מקסימלי ביום", "גם אם יש יתרה, אחרי הזמן הזה אפליקציות \"לפי זמן מסך\" נסגרות עד מחר. אפליקציות \"תמיד פתוח\" נשארות פתוחות.",
         "בלי הגבלה: אפשר להשתמש בכל היתרה", rules.dailyMax, (m) => save({ daily_max: m })),
 
