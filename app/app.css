@@ -373,3 +373,6 @@ body.sheet-open { overflow: hidden; }
 .always-choices { padding-inline-start: 24px; gap: 6px; }
 .type-choice.sub { background: #fff; border: 1.5px solid var(--stroke); }
 .type-choice.sub[aria-pressed="true"] { border-color: var(--primary); background: #fff; }
+/* Daily screen time: a field per day of the week (rules.js weekMinutesDialog) */
+.week-row { gap: 8px; }
+input.week-minutes { width: 110px; min-height: 44px; text-align: center; }

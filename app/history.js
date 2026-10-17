@@ -44,7 +44,7 @@ function activityHistory(container, app) {
     const since = new Date(Date.now() - HISTORY_DAYS * 86_400_000).toISOString().slice(0, 19) + "Z";
     const [sessions, gifts] = await Promise.all([
       loadSessions(`child_id=eq.${child.id}&started_at=gte.${since}&order=started_at.desc`),
-      api.select(`ledger?select=minutes,reason,created_at&child_id=eq.${child.id}&kind=eq.parent&created_at=gte.${since}&order=created_at.desc`),
+      api.select(`ledger?select=minutes,reason,created_at&child_id=eq.${child.id}&kind=in.(parent,daily)&created_at=gte.${since}&order=created_at.desc`),
     ]);
     return { children, child, sessions, gifts: gifts.map((g) => ({ minutes: Math.trunc(g.minutes), reason: g.reason, at: g.created_at })) };
   }, ({ children, child, sessions, gifts }) => {

@@ -2,7 +2,7 @@
 // Changes are saved right away and reach the child's phone within seconds. Ported from RulesScreen.kt.
 
 import * as api from "./api.js";
-import { el, runAction, openDialog, chips, toggle, digitsInput, field, loadInto, screenTitle } from "./ui.js";
+import { el, runAction, openDialog, chips, toggle, digitsInput, field, loadInto, screenTitle, formatDuration } from "./ui.js";
 import { loadChildRefs, pick, childPicker, noChildrenYet, appIcon } from "./shared.js";
 
 /** Well-known apps, so parents pick by name instead of package name. Some apps have several packages. */
@@ -98,7 +98,7 @@ export function rulesScreen(container, app) {
     const child = pick(children, app.childId);
     if (!child) return { children, child };
     const [r, apps] = await Promise.all([
-      api.select(`rules?select=require_approval,daily_cap,auto_approve_up_to,seconds_per_correct,mistakes_reminder,app_types,lock_schedule,app_limits&child_id=eq.${child.id}`),
+      api.select(`rules?select=require_approval,daily_cap,auto_approve_up_to,seconds_per_correct,mistakes_reminder,app_types,lock_schedule,app_limits,daily_allowance,reset_daily,daily_max&child_id=eq.${child.id}`),
       api.select(`device_apps?select=package,label,icon&child_id=eq.${child.id}`),
     ]);
     const rules = r[0] && {
@@ -110,6 +110,9 @@ export function rulesScreen(container, app) {
       types: Object.fromEntries(Object.entries(r[0].app_types || {}).filter(([, t]) => TYPES.includes(t))),
       lockHours: parseSchedule(r[0].lock_schedule),
       appLimits: r[0].app_limits || {},
+      dailyAllowance: positive(r[0].daily_allowance),
+      resetDaily: !!r[0].reset_daily,
+      dailyMax: positive(r[0].daily_max),
     };
     // Calls, contacts, settings and installers are always open on the phone, so they aren't listed.
     const installed = Object.fromEntries(apps.filter((a) => !SYSTEM_OPEN.has(a.package)).map((a) => [a.package, a.label]));
@@ -199,6 +202,17 @@ export function rulesScreen(container, app) {
             : "כבוי: לא נשלחות תזכורות. הטעויות עדיין מופיעות בכרטיס של הילד",
           toggle(rules.mistakesReminder, (v) => save({ mistakes_reminder: v }), "תזכורת לעבור על טעויות"))),
       dailyCapSection(rules.dailyCap, (v) => save({ daily_cap: v })),
+
+      el("h2", { class: "section-title" }, "⏰ זמן מסך יומי"),
+      weekMinutesCard("🌅", "זמן התחלה לכל יום", `בכל יום ב-00:00 ${child.name} מקבל/ת את הזמן הזה, בנוסף למה שיצבור מלמידה ומשימות.`,
+        "בלי זמן התחלה: הילד מתחיל כל יום עם מה שנשאר לו", rules.dailyAllowance, (m) => save({ daily_allowance: m })),
+      el("section", { class: "card" },
+        settingRow("🌙", "איפוס היתרה בסוף היום",
+          rules.resetDaily ? "בחצות היתרה מתאפסת, ואז מתווסף זמן ההתחלה של היום החדש. מה שלא נוצל לא עובר למחר, כולל דקות מלמידה ומתנות"
+            : "כבוי: מה שנשאר ביתרה עובר למחר",
+          toggle(rules.resetDaily, (v) => save({ reset_daily: v }), "איפוס היתרה בסוף היום"))),
+      weekMinutesCard("⏱️", "זמן מסך מקסימלי ביום", "גם אם יש יתרה, אחרי הזמן הזה אפליקציות \"לפי זמן מסך\" נסגרות עד מחר. אפליקציות \"תמיד פתוח\" נשארות פתוחות.",
+        "בלי הגבלה: אפשר להשתמש בכל היתרה", rules.dailyMax, (m) => save({ daily_max: m })),
 
       el("h2", { class: "section-title" }, "🌙 שעות נעילה"),
       lockHoursCard(rules.lockHours, (hours) => save({ lock_schedule: hours }), reload),
@@ -314,7 +328,7 @@ function asHours(minutes) {
 /** Most screen minutes that can be earned in a day (0 to 1440): shown big, changed in a small window. */
 function dailyCapSection(current, onSave) {
   return el("section", { class: "card" },
-    settingRow("📈", "תקרה יומית", "הכי הרבה דקות מסך שאפשר לצבור ביום",
+    settingRow("📈", "תקרת צבירה יומית", "הכי הרבה דקות שאפשר לצבור (להרוויח) ביום מלמידה ומשימות. זה לא מגביל כמה משתמשים",
       el("button", { class: "btn outline small", onclick: () => dailyCapDialog(current, onSave) }, "שינוי")),
     el("div", { class: "cap" },
       el("b", { class: "cap-number ltr" }, current), el("span", { class: "primary-text" }, " דק׳ ביום"),
@@ -339,7 +353,7 @@ function dailyCapDialog(current, onSave) {
   openDialog((close) => {
     save.onclick = () => { close(); onSave(value()) };
     return {
-      title: "📈 תקרה יומית",
+      title: "📈 תקרת צבירה יומית",
       body: [
         el("p", { class: "small muted" }, "כמה דקות מסך אפשר לצבור לכל היותר ביום? מתנות דקות ממך לא נספרות בתקרה."),
         quick,
@@ -403,4 +417,59 @@ function lockHoursSection(hours, onSave) {
     first && (Object.keys(hours).length < 7 || !allSame) && el("button", {
       class: "btn plain", onclick: () => onSave(Object.fromEntries(WEEK.map(([k]) => [k, first.w]))),
     }, `להעתיק את השעות של יום ${first.name} לכל הימים`));
+}
+
+// --- Daily screen time (SPEC.md "שש תוספות", stage ג): a value per day of the week ---
+
+/** {"0": 120, ...} with only the days above 0 ("0" = Sunday). */
+function positive(obj) {
+  return Object.fromEntries(Object.entries(obj || {}).map(([k, v]) => [k, Number(v)]).filter(([, v]) => v > 0));
+}
+
+/** "כל יום: 2 ש׳", or day by day; null when nothing is set. */
+function weekSummary(m) {
+  const values = WEEK.map(([k]) => m[k] || 0);
+  if (values.every((v) => v === 0)) return null;
+  if (new Set(values).size === 1) return `כל יום: ${formatDuration(values[0] * 60)}`;
+  return WEEK.filter(([k]) => m[k] > 0).map(([k, name]) => `${name}: ${formatDuration(m[k] * 60)}`).join(" · ");
+}
+
+/** A setting with a value per day: its explanation, a summary line and "עריכה" (WeekMinutesCard in the app). */
+function weekMinutesCard(icon, title, explain, empty, current, onSave) {
+  const summary = weekSummary(current);
+  return el("section", { class: "card" },
+    settingRow(icon, title, explain,
+      el("button", { class: "btn outline small", onclick: () => weekMinutesDialog(`${icon} ${title}`, current, onSave) }, "עריכה")),
+    el("p", { class: "cap " + (summary ? "primary-text" : "muted") }, el("b", {}, summary || empty)));
+}
+
+/** A field per day of the week (minutes; empty or 0 = none), and "the same every day". */
+function weekMinutesDialog(title, current, onSave) {
+  const texts = Object.fromEntries(WEEK.map(([k]) => [k, current[k] ? String(current[k]) : ""]));
+  const valid = (k) => !texts[k] || Number(texts[k]) <= 1440;
+  const save = el("button", { class: "btn plain" }, "שמירה");
+  const inputs = {};
+  const update = () => {
+    save.disabled = !WEEK.every(([k]) => valid(k));
+    WEEK.forEach(([k]) => inputs[k].classList.toggle("invalid", !valid(k)));
+  };
+  const rows = WEEK.map(([k, name]) => {
+    inputs[k] = digitsInput(texts[k], 4, (v) => { texts[k] = v; update() }, { placeholder: "0", class: "week-minutes" });
+    return el("div", { class: "row week-row" }, el("span", { class: "grow medium" }, name), inputs[k], el("span", { class: "small muted" }, "דק׳"));
+  });
+  const same = el("button", {
+    class: "btn plain", onclick: () => { WEEK.forEach(([k]) => { texts[k] = texts["0"]; inputs[k].value = texts["0"] }); update() },
+  }, "כמו ראשון בכל הימים");
+  update();
+  openDialog((close) => {
+    save.onclick = () => {
+      close();
+      onSave(Object.fromEntries(WEEK.map(([k]) => [k, Number(texts[k] || 0)]).filter(([, v]) => v > 0)));
+    };
+    return {
+      title,
+      body: [el("p", { class: "small muted" }, "בדקות. ריק או 0 = בלי. למשל 120 = שעתיים."), rows, same],
+      buttons: [el("button", { class: "btn plain", onclick: close }, "ביטול"), save],
+    };
+  });
 }
