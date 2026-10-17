@@ -17,7 +17,7 @@ const TABS = [
   { id: "children", label: "ילדים", icon: "👨‍👩‍👧", show: childrenScreen },
   { id: "approvals", label: "אישורים", icon: "✅", show: approvalsScreen },
   { id: "activities", label: "משימות", icon: "⭐", show: activitiesScreen },
-  { id: "history", label: "היסטוריה", icon: "📅", show: historyScreen },
+  { id: "history", label: "היסטוריה", icon: "🕘", show: historyScreen },
   { id: "rules", label: "הגדרות", icon: "⚙️", show: rulesScreen },
 ];
 
