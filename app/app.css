@@ -376,3 +376,5 @@ body.sheet-open { overflow: hidden; }
 /* Daily screen time: a field per day of the week (rules.js weekMinutesDialog) */
 .week-row { gap: 8px; }
 input.week-minutes { width: 110px; min-height: 44px; text-align: center; }
+/* New apps waiting for approval (rules.js newAppsSection) */
+.waiting-apps { background: var(--accent-soft); box-shadow: none; }

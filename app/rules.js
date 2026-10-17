@@ -52,13 +52,14 @@ const SYSTEM_OPEN = new Set([
 ]);
 
 /** What each app type means, in words parents understand (AppType in the Android app). */
-const TYPES = ["count", "free", "always", "always_count", "blocked"];
+const TYPES = ["count", "free", "always", "always_count", "blocked", "pending"];
 const TYPE_INFO = {
   count: { icon: "⏳", title: "לפי זמן מסך", explain: "משתמשים בדקות מהיתרה, והאפליקציה נסגרת כשהן נגמרות" },
   free: { icon: "🎈", title: "חופשי", explain: "לא מוריד דקות. נסגרת רק בזמן פעילות ובשעות נעילה" },
   always: { icon: "✅", title: "תמיד פתוח", explain: "לא נסגרת אף פעם, גם כשהטלפון נעול. למשל וואטסאפ להורים" },
   always_count: { icon: "✅", title: "תמיד פתוח · סופר זמן", explain: "לא נסגרת אף פעם, אבל מורידה דקות מהיתרה כל עוד יש" },
   blocked: { icon: "⛔", title: "חסום", explain: "לא נפתחת אף פעם, גם כשיש דקות ביתרה וגם כשהטלפון חופשי" },
+  pending: { icon: "📲", title: "מחכה לאישור", explain: "אפליקציה חדשה שהילד התקין. חסומה עד שתאשרו או תחסמו" },
 };
 /** "Always open" in both its forms: never closes. */
 const alwaysOpen = (t) => t === "always" || t === "always_count";
@@ -98,7 +99,7 @@ export function rulesScreen(container, app) {
     const child = pick(children, app.childId);
     if (!child) return { children, child };
     const [r, apps] = await Promise.all([
-      api.select(`rules?select=require_approval,daily_cap,auto_approve_up_to,seconds_per_correct,mistakes_reminder,app_types,lock_schedule,app_limits,daily_allowance,reset_daily,daily_max&child_id=eq.${child.id}`),
+      api.select(`rules?select=require_approval,daily_cap,auto_approve_up_to,seconds_per_correct,mistakes_reminder,app_types,lock_schedule,app_limits,daily_allowance,reset_daily,daily_max,new_apps&child_id=eq.${child.id}`),
       api.select(`device_apps?select=package,label,icon&child_id=eq.${child.id}`),
     ]);
     const rules = r[0] && {
@@ -113,6 +114,7 @@ export function rulesScreen(container, app) {
       dailyAllowance: positive(r[0].daily_allowance),
       resetDaily: !!r[0].reset_daily,
       dailyMax: positive(r[0].daily_max),
+      newApps: r[0].new_apps || "allow",
     };
     // Calls, contacts, settings and installers are always open on the phone, so they aren't listed.
     const installed = Object.fromEntries(apps.filter((a) => !SYSTEM_OPEN.has(a.package)).map((a) => [a.package, a.label]));
@@ -162,7 +164,7 @@ export function rulesScreen(container, app) {
       const q = query.trim().toLowerCase();
       const shown = allRows.filter((r) => !q || r.name.toLowerCase().includes(q));
       // The short groups first, so "blocked", "always open" and "free" aren't buried under a long list.
-      const groups = ["blocked", "always", "always_count", "free", "count"].map((type) => {
+      const groups = ["pending", "blocked", "always", "always_count", "free", "count"].map((type) => {
         const inGroup = shown.filter((r) => typeOf(r.packages) === type).sort((a, b) => (a.name.toLowerCase() < b.name.toLowerCase() ? -1 : a.name.toLowerCase() > b.name.toLowerCase() ? 1 : 0));
         if (!inGroup.length) return null;
         const info = TYPE_INFO[type];
@@ -217,6 +219,9 @@ export function rulesScreen(container, app) {
       el("h2", { class: "section-title" }, "🌙 שעות נעילה"),
       lockHoursCard(rules.lockHours, (hours) => save({ lock_schedule: hours }), reload),
 
+      el("h2", { class: "section-title" }, "📲 אפליקציות חדשות"),
+      newAppsSection(child, rules, installed, (mode) => save({ new_apps: mode }), (pkg, type) => setApp([pkg], type, null)),
+
       el("h2", { class: "section-title" }, "📱 אפליקציות"),
       typesLegend(),
       !installedPkgs.length && el("p", { class: "small muted" }, `כשהטלפון של ${child.name} יחובר, תופיע כאן רשימת האפליקציות שמותקנות בו.`),
@@ -237,7 +242,7 @@ const settingRow = (icon, title, subtitle, control) =>
 /** What the three app types mean, once, above the list. */
 function typesLegend() {
   return el("section", { class: "card" },
-    TYPES.map((t) => el("div", { class: "legend-row" },
+    TYPES.filter((t) => t !== "pending").map((t) => el("div", { class: "legend-row" },
       el("span", {}, TYPE_INFO[t].icon),
       el("div", {}, el("b", { class: "block" }, TYPE_INFO[t].title), el("span", { class: "small muted" }, TYPE_INFO[t].explain)))),
     el("hr"),
@@ -472,4 +477,34 @@ function weekMinutesDialog(title, current, onSave) {
       buttons: [el("button", { class: "btn plain", onclick: close }, "ביטול"), save],
     };
   });
+}
+
+// --- New apps (SPEC.md "שש תוספות", stage ד) ---
+
+const PLAY_STORE = "com.android.vending";
+
+/** Whether a new app needs approval, the Google Play switch, and the apps waiting now (NewAppsSection in the app). */
+function newAppsSection(child, rules, installed, onMode, onApp) {
+  const waiting = Object.entries(rules.types).filter(([, t]) => t === "pending").map(([p]) => p)
+    .sort((a, b) => (installed[a] || a).localeCompare(installed[b] || b));
+  const storeBlocked = rules.types[PLAY_STORE] === "blocked";
+  return [
+    el("section", { class: "card" },
+      el("b", { class: "block" }, `מה קורה כש${child.name} מתקין/ה אפליקציה חדשה?`),
+      chips([["allow", "מותר להתקין"], ["approve", "צריך אישור הורה"]], rules.newApps, onMode),
+      el("p", { class: "small muted" }, rules.newApps === "approve"
+        ? "אפליקציה חדשה תותקן, אבל תהיה חסומה עד שתאשרו. תקבלו הודעה, וההחלטה כאן למטה."
+        : "אפליקציה חדשה נספרת לפי זמן מסך, כמו כל אפליקציה. אי אפשר למנוע את ההורדה עצמה, אבל עם \"צריך אישור הורה\" היא לא תיפתח בלי אישור."),
+      el("hr"),
+      settingRow("🛒", "לחסום את חנות Google Play",
+        storeBlocked ? "החנות לא נפתחת, אז אי אפשר להוריד אפליקציות. מכבים כשרוצים לתת להוריד משהו" : "החנות פתוחה",
+        toggle(storeBlocked, (on) => onApp(PLAY_STORE, on ? "blocked" : "count"), "לחסום את חנות Google Play"))),
+    waiting.length > 0 && el("section", { class: "card waiting-apps" },
+      el("b", { class: "block" }, `📲 ${waiting.length === 1 ? "אפליקציה אחת מחכה" : `${waiting.length} אפליקציות מחכות`} לאישור שלך`),
+      waiting.map((pkg) => el("div", { class: "row" },
+        el("span", { class: "grow medium" }, installed[pkg] || pkg),
+        el("button", { class: "btn plain small", onclick: () => onApp(pkg, "count") }, "לאשר"),
+        el("button", { class: "btn plain small danger", onclick: () => onApp(pkg, "blocked") }, "לחסום"))),
+      el("p", { class: "small muted" }, "\"לאשר\": האפליקציה נספרת לפי זמן מסך (אפשר לשנות אחר כך ברשימה). \"לחסום\": היא לא תיפתח.")),
+  ];
 }
