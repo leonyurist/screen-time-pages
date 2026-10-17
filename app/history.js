@@ -255,7 +255,8 @@ function statsView(container, app) {
 }
 
 /**
- * A bar per day, oldest on the left (like a usual chart, also in Hebrew). Tap a bar to see that day.
+ * A bar per day, oldest on the right and newest on the left, like the Hebrew week (Sunday on the right).
+ * Bars and labels are both right-to-left rows, so they line up. Tap a bar to see that day.
  * Every day has a light track, so days without use still show. The scale is at least 30 minutes.
  */
 function usageChart(days, selected, period, onSelect) {
@@ -268,14 +269,14 @@ function usageChart(days, selected, period, onSelect) {
     dated.add(chosen);
   }
   return el("section", { class: "card chart" + (period > 7 ? " dense" : "") },
-    el("div", { class: "bars", dir: "ltr" }, days.map((d) =>
+    el("div", { class: "bars", dir: "rtl" }, days.map((d) =>
       el("button", {
         type: "button", class: "bar-slot" + (d.day === selected ? " selected" : ""),
         "aria-label": `${formatDate(d.day)}: ${formatDuration(d.total)}`, onclick: () => onSelect(d.day),
       },
         period <= 7 && d.total >= 60 && el("span", { class: "bar-value" }, Math.floor(d.total / 60)),
         el("span", { class: "bar", style: `height:${(d.total / max) * 85}%` })))),
-    el("div", { class: "bar-labels", dir: "ltr" }, days.map((d, i) =>
+    el("div", { class: "bar-labels", dir: "rtl" }, days.map((d, i) =>
       el("span", { class: d.day === selected ? "selected" : "" },
         period <= 7 ? HEBREW_DAY_LETTERS[weekday(d.day)] : dated.has(i) ? `${+d.day.slice(8)}/${+d.day.slice(5, 7)}` : ""))));
 }
