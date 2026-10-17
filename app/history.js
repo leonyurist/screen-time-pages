@@ -8,6 +8,7 @@ import {
   el, toast, openDialog, chips, loadInto, screenTitle, formatDate, formatTime, israelDate, israelToday, addDays,
   israelTime, weekday, signed, formatDuration,
 } from "./ui.js";
+import { mistakesScreen } from "./mistakes.js";
 import { loadChildRefs, pick, childPicker, noChildrenYet, loadSessions, reviewSession, reviewDialog, photoThumbs, appIcon } from "./shared.js";
 
 const HISTORY_DAYS = 30;
@@ -181,6 +182,7 @@ function learningView(container, app) {
     !child ? noChildrenYet() : [
       chips([[7, "7 ימים"], [30, "30 ימים"], [90, "90 ימים"]], view.learningDays, (d) => { view.learningDays = d; reload() }),
       learningSummary(child, learning),
+      el("button", { class: "btn outline block", onclick: () => mistakesScreen(child) }, `📝 לעבור על הטעויות של ${child.name}`),
     ],
   ]);
 }
@@ -189,7 +191,7 @@ function learningView(container, app) {
 
 /** Sunday first, like the Israeli week. */
 const HEBREW_DAY_LETTERS = ["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ש׳"];
-const SUBJECT_EMOJI = { "חשבון": "🔢", "לשון": "✏️", "אנגלית": "🔤", "קריאה": "📖" };
+const SUBJECT_EMOJI = { "חשבון": "🔢", "לשון": "✏️", "אנגלית": "🔤", "קריאה": "📖", "תיקון טעויות": "🔧" };
 
 function statsView(container, app) {
   const reload = () => statsView(container, app);

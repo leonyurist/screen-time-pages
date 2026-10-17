@@ -8,9 +8,17 @@ import {
 } from "./ui.js";
 import { DEFAULT_AVATAR } from "./shared.js";
 import { locationDialog } from "./location.js";
+import { mistakesScreen, mistakesSummary, mistakesWord } from "./mistakes.js";
 
 /** Children whose card is open (cards start closed, and stay open while the site is open). */
 const openCards = new Set();
+
+/** The children, each with its mistakes summary (or null if it didn't load). */
+async function loadChildrenWithMistakes() {
+  const children = await loadChildren();
+  await Promise.all(children.map(async (c) => { c.mistakes = await mistakesSummary(c.id).catch(() => null) }));
+  return children;
+}
 
 async function loadChildren() {
   const rows = await api.select(
@@ -82,6 +90,7 @@ export function childrenScreen(container, app, cached) {
       () => runAction(() => api.rpc("new_pairing_code", { p_child: child.id }), "נוצר קוד חדש", reload)),
     onDelete: (child) => confirmDialog(`למחוק את ${child.name}?`, `כל הנתונים של ${child.name} יימחקו: יתרה, היסטוריה, משימות והגדרות. אי אפשר לבטל.`, "מחיקה",
       () => runAction(() => api.remove("children", `id=eq.${child.id}`), `${child.name} נמחק/ה`, reload)),
+    onMistakes: (child) => mistakesScreen(child, reload),
     onToggle: (child) => { openCards.has(child.id) ? openCards.delete(child.id) : openCards.add(child.id); childrenScreen(container, app, current) },
   };
 
@@ -102,7 +111,7 @@ export function childrenScreen(container, app, cached) {
     addButton,
   ] };
   if (cached) return container.replaceChildren(...nodes(draw(cached)));
-  return loadInto(container, loadChildren, draw);
+  return loadInto(container, loadChildrenWithMistakes, draw);
 }
 
 /**
@@ -130,10 +139,12 @@ function childCard(child, expanded, a) {
     el("span", { class: "balance" }, el("b", { class: "ltr" }, child.balance), el("span", {}, "דק׳ ביתרה")),
     el("span", { class: "arrow" + (expanded ? " up" : ""), "aria-hidden": "true" }));
 
-  if (!expanded) return el("section", { class: "card child-card" }, head);
+  const strip = mistakesStrip(child, a);
+  if (!expanded) return el("section", { class: "card child-card" }, head, strip);
 
   return el("section", { class: "card child-card" },
     head,
+    strip,
     alerts.length > 0 && el("div", { class: "alert-box" }, alerts.map((t) => el("p", {}, "⚠️ " + t))),
     (!child.gender || !child.birthYear) && el("div", { class: "note-row" },
       el("span", { class: "grow small" }, "חסרים פרטים: בן/בת ושנת לידה"),
@@ -150,6 +161,27 @@ function childCard(child, expanded, a) {
     // The actions parents rarely need, behind one clearly labeled button.
     el("button", { class: "btn outline block", onclick: () => childSettingsDialog(child, paired, a) }, `⚙️ הגדרות של ${child.name}`),
   );
+}
+
+/**
+ * Mistakes in smart learning not gone over yet, or "finished correcting alone" (minutes to give).
+ * Shown on the closed card too, so the parent sees it at once.
+ */
+function mistakesStrip(child, a) {
+  const s = child.mistakes;
+  const done = s?.correction?.done;
+  const solo = s?.correction?.open;
+  if (!s || (s.open === 0 && !done)) return null;
+  const girl = child.gender === "girl";
+  const [title, sub] = done
+    ? [`${child.name} ${girl ? "סיימה" : "סיים"} לתקן טעויות`, `${done.fixed} מתוך ${done.total} תוקנו · לתת זמן מסך?`]
+    : [`${mistakesWord(s.open)} בלמידה`, solo
+      ? `🔧 ${girl ? "מתקנת" : "מתקן"} לבד: ${solo.answered} מתוך ${solo.total}`
+      : s.open === 1 ? "שעוד לא עברתם עליה ביחד" : "שעוד לא עברתם עליהן ביחד"];
+  return el("button", { type: "button", class: "mistakes-strip", onclick: () => a.onMistakes(child) },
+    el("span", { class: "strip-icon" }, done ? "🎉" : "📝"),
+    el("span", { class: "grow" }, el("b", { class: "block" }, title), el("span", { class: "small muted" }, sub)),
+    el("b", { class: "small primary-text nowrap" }, done ? "לראות ›" : s.open === 1 ? "לעבור עליה ›" : "לעבור עליהן ›"));
 }
 
 /** A big, clear button with an icon and two lines of text. */
