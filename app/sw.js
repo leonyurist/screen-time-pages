@@ -2,7 +2,7 @@
 // network when there is one (so updates show up at once) and from the cache when offline.
 // Calls to the server (Supabase) are never cached. It also shows the notifications (push.js).
 
-const CACHE = "screendeal-v10";
+const CACHE = "screendeal-v11";
 const FILES = [
   "./", "index.html", "app.css", "app.js", "api.js", "ui.js", "shared.js", "children.js", "location.js", "approvals.js",
   "activities.js", "rules.js", "history.js", "mistakes.js", "account.js", "push.js", "manifest.webmanifest", "icons/icon-180.png", "icons/icon-192.png", "icons/logo.svg",

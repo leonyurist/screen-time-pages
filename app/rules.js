@@ -89,7 +89,7 @@ export function rulesScreen(container, app) {
     const child = pick(children, app.childId);
     if (!child) return { children, child };
     const [r, apps] = await Promise.all([
-      api.select(`rules?select=require_approval,daily_cap,auto_approve_up_to,seconds_per_correct,app_types,lock_schedule,app_limits&child_id=eq.${child.id}`),
+      api.select(`rules?select=require_approval,daily_cap,auto_approve_up_to,seconds_per_correct,mistakes_reminder,app_types,lock_schedule,app_limits&child_id=eq.${child.id}`),
       api.select(`device_apps?select=package,label,icon&child_id=eq.${child.id}`),
     ]);
     const rules = r[0] && {
@@ -97,6 +97,7 @@ export function rulesScreen(container, app) {
       dailyCap: r[0].daily_cap,
       autoApproveUpTo: r[0].auto_approve_up_to,
       secondsPerCorrect: r[0].seconds_per_correct ?? 5,
+      mistakesReminder: r[0].mistakes_reminder ?? true,
       types: Object.fromEntries(Object.entries(r[0].app_types || {}).filter(([, t]) => TYPES.includes(t))),
       lockHours: parseSchedule(r[0].lock_schedule),
       appLimits: r[0].app_limits || {},
@@ -183,6 +184,11 @@ export function rulesScreen(container, app) {
         el("p", { class: "small muted" }, "כל תשובה נכונה מוסיפה עוד זמן מסך, מעבר לזמן הלמידה עצמו."),
         chips([[0, "בלי בונוס"], [5, "5 שניות"], [10, "10 שניות"], [15, "15 שניות"], [30, "30 שניות"]], rules.secondsPerCorrect,
           (v) => save({ seconds_per_correct: v }))),
+      el("section", { class: "card" },
+        settingRow("📝", "תזכורת לעבור על טעויות",
+          rules.mistakesReminder ? "התראה ב-18:00 כשיש טעויות בנות 3 ימים לפחות. לכל היותר פעם בשבוע, ורק כשנוספו טעויות חדשות"
+            : "כבוי: לא נשלחות תזכורות. הטעויות עדיין מופיעות בכרטיס של הילד",
+          toggle(rules.mistakesReminder, (v) => save({ mistakes_reminder: v }), "תזכורת לעבור על טעויות"))),
       dailyCapSection(rules.dailyCap, (v) => save({ daily_cap: v })),
 
       el("h2", { class: "section-title" }, "🌙 שעות נעילה"),
