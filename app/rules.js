@@ -52,12 +52,21 @@ const SYSTEM_OPEN = new Set([
 ]);
 
 /** What each app type means, in words parents understand (AppType in the Android app). */
-const TYPES = ["count", "free", "always"];
+const TYPES = ["count", "free", "always", "always_count", "blocked"];
 const TYPE_INFO = {
   count: { icon: "⏳", title: "לפי זמן מסך", explain: "משתמשים בדקות מהיתרה, והאפליקציה נסגרת כשהן נגמרות" },
   free: { icon: "🎈", title: "חופשי", explain: "לא מוריד דקות. נסגרת רק בזמן פעילות ובשעות נעילה" },
   always: { icon: "✅", title: "תמיד פתוח", explain: "לא נסגרת אף פעם, גם כשהטלפון נעול. למשל וואטסאפ להורים" },
+  always_count: { icon: "✅", title: "תמיד פתוח · סופר זמן", explain: "לא נסגרת אף פעם, אבל מורידה דקות מהיתרה כל עוד יש" },
+  blocked: { icon: "⛔", title: "חסום", explain: "לא נפתחת אף פעם, גם כשיש דקות ביתרה וגם כשהטלפון חופשי" },
 };
+/** "Always open" in both its forms: never closes. */
+const alwaysOpen = (t) => t === "always" || t === "always_count";
+/** The two "always open" choices, shown under it once it's picked (ALWAYS_CHOICES in the Android app). */
+const ALWAYS_CHOICES = [
+  ["always", "לא מוריד זמן מסך", "השימוש בה לא נספר. מתאים לאפליקציות שהילד צריך, כמו טלפון להורים או מפות."],
+  ["always_count", "מוריד זמן מסך", "כל עוד יש יתרה, הזמן בה נספר כמו בכל אפליקציה. כשהיתרה נגמרת היא נשארת פתוחה, והדקות מפסיקות לרדת. מתאים לוואטסאפ: תמיד אפשר לדבר, אבל הזמן נספר."],
+];
 
 /** Sunday first, like the Israeli week. Keys as on the server: 0 = Sunday ... 6 = Saturday. */
 const WEEK = [["0", "ראשון"], ["1", "שני"], ["2", "שלישי"], ["3", "רביעי"], ["4", "חמישי"], ["5", "שישי"], ["6", "שבת"]];
@@ -126,7 +135,7 @@ export function rulesScreen(container, app) {
         delete types[p];
         delete limits[p];
         if (type !== "count") types[p] = type;
-        if (limit != null && type !== "always") limits[p] = limit;
+        if (limit != null && !alwaysOpen(type) && type !== "blocked") limits[p] = limit;
       }
       save({ app_types: types, app_limits: limits });
     }
@@ -149,8 +158,8 @@ export function rulesScreen(container, app) {
     function drawList() {
       const q = query.trim().toLowerCase();
       const shown = allRows.filter((r) => !q || r.name.toLowerCase().includes(q));
-      // The short groups first, so "free" and "always open" aren't buried under a long list.
-      const groups = ["always", "free", "count"].map((type) => {
+      // The short groups first, so "blocked", "always open" and "free" aren't buried under a long list.
+      const groups = ["blocked", "always", "always_count", "free", "count"].map((type) => {
         const inGroup = shown.filter((r) => typeOf(r.packages) === type).sort((a, b) => (a.name.toLowerCase() < b.name.toLowerCase() ? -1 : a.name.toLowerCase() > b.name.toLowerCase() ? 1 : 0));
         if (!inGroup.length) return null;
         const info = TYPE_INFO[type];
@@ -246,12 +255,21 @@ function appDialog(name, icon, currentType, currentLimit, onSave) {
     save.disabled = !limitValid();
     input.classList.toggle("invalid", !limitValid());
     quick.select(limitText ? limit() : "");
-    limitBox.hidden = type === "always";
-    typeRows.replaceChildren(...TYPES.map((t) => el("button", {
-      type: "button", class: "type-choice", "aria-pressed": String(t === type), onclick: () => { type = t; update() },
-    },
-      el("span", { class: "radio", "aria-hidden": "true" }),
-      el("span", { class: "grow" }, el("b", { class: "block" }, `${TYPE_INFO[t].icon} ${TYPE_INFO[t].title}`), el("span", { class: "small muted" }, TYPE_INFO[t].explain)))));
+    limitBox.hidden = alwaysOpen(type) || type === "blocked";
+    // "Always open" is one choice here; whether it counts time is picked right under it.
+    typeRows.replaceChildren(...["count", "free", "always", "blocked"].flatMap((t) => {
+      const selected = t === "always" ? alwaysOpen(type) : t === type;
+      const row = el("button", {
+        type: "button", class: "type-choice", "aria-pressed": String(selected), onclick: () => { if (!selected) { type = t; update() } },
+      },
+        el("span", { class: "radio", "aria-hidden": "true" }),
+        el("span", { class: "grow" }, el("b", { class: "block" }, `${TYPE_INFO[t].icon} ${TYPE_INFO[t].title}`), el("span", { class: "small muted" }, TYPE_INFO[t].explain)));
+      if (t !== "always" || !selected) return [row];
+      return [row, el("div", { class: "stack always-choices" }, ALWAYS_CHOICES.map(([choice, title, explain]) =>
+        el("button", { type: "button", class: "type-choice sub", "aria-pressed": String(type === choice), onclick: () => { type = choice; update() } },
+          el("span", { class: "radio", "aria-hidden": "true" }),
+          el("span", { class: "grow" }, el("b", { class: "block" }, title), el("span", { class: "small muted" }, explain)))))];
+    }));
   }
   quick = chips([["", "בלי הגבלה"], [15, "15"], [30, "30"], [60, "60"]], "", (m) => { limitText = String(m); input.value = limitText; update() });
   limitBox.append(
@@ -261,7 +279,7 @@ function appDialog(name, icon, currentType, currentLimit, onSave) {
     el("label", { class: "field" }, el("span", {}, "או מספר אחר (דק׳ ביום)"), input));
   update();
   openDialog((close) => {
-    save.onclick = () => { close(); onSave(type, type === "always" ? null : limit()) };
+    save.onclick = () => { close(); onSave(type, alwaysOpen(type) || type === "blocked" ? null : limit()) };
     return {
       title: el("span", { class: "row" }, icon ? appIcon(icon, 32) : "", name),
       body: [typeRows, limitBox],

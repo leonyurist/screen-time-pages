@@ -369,3 +369,7 @@ body.sheet-open { overflow: hidden; }
 .mistakes-strip .strip-icon { font-size: 26px; }
 .ltr-math { display: inline-block; direction: ltr; unicode-bidi: isolate; }
 .other-row[hidden] { display: none; }
+/* "Always open" with or without counting time, under the choice (rules.js appDialog) */
+.always-choices { padding-inline-start: 24px; gap: 6px; }
+.type-choice.sub { background: #fff; border: 1.5px solid var(--stroke); }
+.type-choice.sub[aria-pressed="true"] { border-color: var(--primary); background: #fff; }
