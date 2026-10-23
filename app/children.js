@@ -6,7 +6,7 @@ import {
   el, nodes, toast, runAction, openDialog, confirmDialog, chips, digitsInput, field, loadInto, screenTitle,
   formatTime, formatDateTime, nextIsraelHour,
 } from "./ui.js";
-import { DEFAULT_AVATAR } from "./shared.js";
+import { DEFAULT_AVATAR, subjects } from "./shared.js";
 import { locationDialog } from "./location.js";
 import { mistakesScreen, mistakesSummary, mistakesWord } from "./mistakes.js";
 
@@ -199,16 +199,13 @@ const actionTile = (icon, title, subtitle, onclick) =>
   el("button", { type: "button", class: "tile", onclick },
     el("span", { class: "tile-icon" }, icon), el("b", {}, title), el("span", { class: "small muted" }, subtitle));
 
-/** The subjects with a learning level, in the order shown (more can be added here). */
-const LEVEL_SUBJECTS = [["math", "🔢 חשבון"], ["hebrew", "✏️ לשון"], ["english", "🔤 אנגלית"], ["reading", "📖 קריאה"]];
-
 /**
  * "🎓 רמות למידה": one short line in the card (how many subjects are above or below the age),
  * opening a window with the level in each subject (LevelsBox in the app).
  */
 function levelsBox(child) {
   const age = Math.min(12, Math.max(6, child.birthYear ? new Date().getFullYear() - child.birthYear : 8));
-  const levels = LEVEL_SUBJECTS.map(([key, label]) => [label, child.levels[key] ?? age]);
+  const levels = subjects().map((s) => [`${s.emoji} ${s.title}`, child.levels[s.key] ?? age]);
   const up = levels.filter(([, l]) => l > age).length;
   const down = levels.filter(([, l]) => l < age).length;
   const summary = up === 0 && down === 0 ? "בכל המקצועות ברמת הגיל"

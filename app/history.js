@@ -9,7 +9,7 @@ import {
   israelTime, weekday, signed, formatDuration,
 } from "./ui.js";
 import { mistakesScreen } from "./mistakes.js";
-import { loadChildRefs, pick, childPicker, noChildrenYet, loadSessions, reviewSession, reviewDialog, photoThumbs, appIcon } from "./shared.js";
+import { loadChildRefs, pick, childPicker, noChildrenYet, loadSessions, reviewSession, reviewDialog, photoThumbs, appIcon, subjects } from "./shared.js";
 
 const HISTORY_DAYS = 30;
 
@@ -191,7 +191,6 @@ function learningView(container, app) {
 
 /** Sunday first, like the Israeli week. */
 const HEBREW_DAY_LETTERS = ["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ש׳"];
-const SUBJECT_EMOJI = { "חשבון": "🔢", "לשון": "✏️", "אנגלית": "🔤", "קריאה": "📖", "תיקון טעויות": "🔧" };
 
 function statsView(container, app) {
   const reload = () => statsView(container, app);
@@ -306,7 +305,7 @@ function bySubject(sessions) {
     const correct = list.reduce((n, s) => n + (s.learning?.correct || 0), 0);
     return {
       subject,
-      emoji: SUBJECT_EMOJI[subject] || "🎓",
+      emoji: subjects().find((x) => x.title === subject)?.emoji || (subject === "תיקון טעויות" ? "🔧" : "🎓"),
       seconds: list.reduce((n, s) => n + Math.max(0, Math.floor((new Date(s.end) - new Date(s.start)) / 1000)), 0),
       sessions: list.length,
       exercises,

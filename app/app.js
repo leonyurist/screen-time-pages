@@ -9,6 +9,7 @@ import { activitiesScreen } from "./activities.js";
 import { historyScreen } from "./history.js";
 import { rulesScreen } from "./rules.js";
 import { accountMenu, familyDialog } from "./account.js";
+import { refreshSubjects } from "./shared.js";
 import * as push from "./push.js";
 
 const root = document.getElementById("root");
@@ -42,6 +43,7 @@ function render() {
   const reset = new URLSearchParams(location.search).get("token_hash");
   if (reset) return root.replaceChildren(newPasswordScreen(reset));
   if (!api.isSignedIn()) return root.replaceChildren(loginScreen());
+  refreshSubjects();
   if (api.phone()) return root.replaceChildren(homeScreen());
   // Email accounts from before phones add one first (checked on the server, in case it was added
   // on another device).

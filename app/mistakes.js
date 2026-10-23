@@ -4,6 +4,7 @@
 
 import * as api from "./api.js";
 import { el, nodes, toast, runAction, openDialog, confirmDialog, chips, digitsInput, formatDate, israelDate } from "./ui.js";
+import { subjects, subjectLabel } from "./shared.js";
 
 // --- Data ---
 
@@ -12,7 +13,7 @@ export async function loadMistakes(childId) {
   const rows = (await api.rpc("parent_mistakes", { p_child: childId })) || [];
   return rows.map((m) => ({
     id: m.id,
-    subject: m.subject, // math | hebrew | english | reading
+    subject: m.subject, // math | hebrew | english | reading | logic | general
     question: m.question,
     answer: m.answer,
     given: m.given,
@@ -68,8 +69,6 @@ export async function mistakesSummary(childId) {
 
 // --- Words ---
 
-const SUBJECTS = [["math", "🔢 חשבון"], ["hebrew", "✏️ לשון"], ["english", "🔤 אנגלית"], ["reading", "📖 קריאה"]];
-const subjectLabel = (key) => SUBJECTS.find(([k]) => k === key)?.[1] || "🎓";
 export const mistakesWord = (n) => (n === 1 ? "טעות אחת" : `${n} טעויות`);
 const g = (child, boy, girl) => (child.gender === "boy" ? boy : child.gender === "girl" ? girl : `${boy}/${girl}`);
 const answered = (child) => (child.gender === "boy" ? "ענה" : child.gender === "girl" ? "ענתה" : "ענה/תה");
@@ -137,7 +136,7 @@ export function mistakesScreen(child, onClosed) {
     el("button", { class: "btn plain", onclick: sheet.close }, "✕ סגירה"));
 
   function draw(groups, correction) {
-    const subjects = SUBJECTS.filter(([key]) => groups.some((x) => x.latest.subject === key));
+    const shownSubjects = subjects().map((s) => [s.key, `${s.emoji} ${s.title}`]).filter(([key]) => groups.some((x) => x.latest.subject === key));
     const inSubject = groups.filter((x) => !state.subject || x.latest.subject === state.subject);
     const shown = inSubject.filter((x) => x.open === state.showOpen);
     const openCount = inSubject.filter((x) => x.open).length;
@@ -158,7 +157,7 @@ export function mistakesScreen(child, onClosed) {
             `השאלות שעוד לא נענו ייעלמו מהטלפון של ${child.name}. מה שכבר ${g(child, "ענה", "ענתה")} נשמר.`, "לבטל",
             () => runAction(() => api.rpc("parent_cancel_correction", { p_child: child.id }), "התיקון בוטל", load)),
         }, "ביטול")),
-      subjects.length > 1 && chips([[null, "הכול"], ...subjects], state.subject, (s) => { state.subject = s; redraw() }),
+      shownSubjects.length > 1 && chips([[null, "הכול"], ...shownSubjects], state.subject, (s) => { state.subject = s; redraw() }),
       el("div", { class: "segmented" },
         el("button", { type: "button", "aria-pressed": String(state.showOpen), onclick: () => { state.showOpen = true; redraw() } }, `לעבור עליהן (${openCount})`),
         el("button", { type: "button", "aria-pressed": String(!state.showOpen), onclick: () => { state.showOpen = false; redraw() } }, `עברנו (${inSubject.length - openCount})`)),

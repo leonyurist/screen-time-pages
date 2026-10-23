@@ -6,6 +6,40 @@ import { el, openDialog, digitsInput, minutesBetween } from "./ui.js";
 
 export const DEFAULT_AVATAR = "🙂";
 
+// --- Learning subjects ---
+
+// The subjects come from the server (learning_subjects, 0051), so a new one shows up by itself.
+// The last list is kept for the next visit; the built-in one is used until the first load.
+const SUBJECTS_KEY = "screendeal-subjects";
+const BUILT_IN_SUBJECTS = [
+  { key: "math", title: "חשבון", emoji: "🔢" }, { key: "hebrew", title: "לשון", emoji: "✏️" },
+  { key: "english", title: "אנגלית", emoji: "🔤" }, { key: "reading", title: "קריאה", emoji: "📖" },
+  { key: "logic", title: "חשיבה", emoji: "🧩" }, { key: "general", title: "ידע כללי", emoji: "🌍" },
+];
+
+/** The learning subjects, in order: [{key, title, emoji, ...}]. */
+export function subjects() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SUBJECTS_KEY));
+    if (Array.isArray(saved) && saved.length) return saved;
+  } catch { /* the built-in list */ }
+  return BUILT_IN_SUBJECTS;
+}
+
+/** Loads the subjects from the server for next time (quietly; the saved list stays on failure). */
+export async function refreshSubjects() {
+  try {
+    const list = await api.rpc("learning_subjects_list");
+    if (Array.isArray(list) && list.length) localStorage.setItem(SUBJECTS_KEY, JSON.stringify(list));
+  } catch { /* offline: keep the saved list */ }
+}
+
+/** "✏️ לשון" for a subject key. */
+export const subjectLabel = (key) => {
+  const s = subjects().find((x) => x.key === key);
+  return s ? `${s.emoji} ${s.title}` : "🎓";
+};
+
 // --- Which child ---
 
 export async function loadChildRefs() {
