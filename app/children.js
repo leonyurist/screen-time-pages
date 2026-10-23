@@ -23,7 +23,8 @@ async function loadChildrenWithMistakes() {
 async function loadChildren() {
   const rows = await api.select(
     "children?select=id,name,gender,birth_year,avatar,pin_hash," +
-    "devices(pairing_code,paired_at,last_seen,service_enabled,admin_active),ledger(minutes),rules(lock_mode,lock_until)" +
+    "devices(pairing_code,paired_at,last_seen,service_enabled,admin_active),ledger(minutes),rules(lock_mode,lock_until)," +
+    "child_levels(subject,level)" +
     "&order=created_at");
   const now = Date.now();
   return rows.map((c) => {
@@ -41,6 +42,7 @@ async function loadChildren() {
       device: c.devices[0] || null,
       lockMode: expired ? "normal" : rules?.lock_mode || "normal",
       lockUntil: expired ? null : lockUntil,
+      levels: Object.fromEntries((c.child_levels || []).map((l) => [l.subject, l.level])),
     };
   });
 }
@@ -99,8 +101,11 @@ export function childrenScreen(container, app, cached) {
 
   const addButton = el("button", {
     class: "fab", onclick: () => childDetailsDialog("הוספת ילד", null, (name, gender, year) =>
-      runAction(() => api.rpc("add_child", { p_name: name, p_gender: gender, p_birth_year: year }),
-        `${name} נוסף/ה. מקלידים את קוד השיוך בטלפון שלו/ה.`, reload)),
+      runAction(async () => {
+        const id = await api.rpc("add_child", { p_name: name, p_gender: gender, p_birth_year: year });
+        // Right after adding: ask for the parent PIN (parents didn't know the child's phone needs one).
+        pinDialog({ id, name }, reload, true);
+      }, `${name} נוסף/ה. הטלפון במצב חופשי עד שתבחרו "רגיל".`, reload)),
   }, "➕ הוספת ילד");
 
   const draw = (children) => { current = children; return [
@@ -157,6 +162,7 @@ function childCard(child, expanded, a) {
       el("div", { class: "pair-code ltr" }, device.pairing_code)),
     paired && el("p", { class: "status" }, "✅ הטלפון מחובר · עודכן לאחרונה: ", el("bdi", {}, formatDateTime(device.last_seen))),
     paired && phoneModeBox(child, (mode) => a.onLock(child, mode)),
+    paired && levelsBox(child),
     // The two everyday actions, side by side and alike.
     el("div", { class: "tiles" },
       actionTile("🎁", "להוסיף דקות", "או להוריד", () => a.onMinutes(child)),
@@ -192,6 +198,39 @@ function mistakesStrip(child, a) {
 const actionTile = (icon, title, subtitle, onclick) =>
   el("button", { type: "button", class: "tile", onclick },
     el("span", { class: "tile-icon" }, icon), el("b", {}, title), el("span", { class: "small muted" }, subtitle));
+
+/** The subjects with a learning level, in the order shown (more can be added here). */
+const LEVEL_SUBJECTS = [["math", "🔢 חשבון"], ["hebrew", "✏️ לשון"], ["english", "🔤 אנגלית"], ["reading", "📖 קריאה"]];
+
+/**
+ * "🎓 רמות למידה": one short line in the card (how many subjects are above or below the age),
+ * opening a window with the level in each subject (LevelsBox in the app).
+ */
+function levelsBox(child) {
+  const age = Math.min(12, Math.max(6, child.birthYear ? new Date().getFullYear() - child.birthYear : 8));
+  const levels = LEVEL_SUBJECTS.map(([key, label]) => [label, child.levels[key] ?? age]);
+  const up = levels.filter(([, l]) => l > age).length;
+  const down = levels.filter(([, l]) => l < age).length;
+  const summary = up === 0 && down === 0 ? "בכל המקצועות ברמת הגיל"
+    : [up && `${up} מעל הגיל ⬆️`, down && `${down} מתחת לגיל ⬇️`].filter(Boolean).join(" · ");
+  const arrow = (l) => l > age ? " ⬆️" : l < age ? " ⬇️" : "";
+  return el("button", {
+    type: "button", class: "levels-row",
+    onclick: () => openDialog((close) => ({
+      title: `🎓 רמות הלמידה של ${child.name}`,
+      body: [
+        el("p", { class: "muted small" }, `כל רמה עולה לבד מעל 85% הצלחה ב-40 התשובות האחרונות, ויורדת ב-25% ומטה. גיל ${child.name}: ${age}.`),
+        ...levels.map(([label, l]) => el("div", { class: "level-line" },
+          el("span", {}, label),
+          el("b", { class: l > age ? "up" : l < age ? "down" : "" }, `רמת גיל ${l}${arrow(l)}`))),
+      ],
+      buttons: [el("button", { class: "btn plain", onclick: close }, "סגירה")],
+    })),
+  },
+  el("span", { class: "levels-icon" }, "🎓"),
+  el("span", { class: "levels-text" }, el("b", {}, "רמות למידה"), el("span", { class: "small muted" }, summary)),
+  el("span", { class: "muted" }, "›"));
+}
 
 /** "Phone mode": normal / locked / free as one choice, with a line that says what the current mode means. */
 function phoneModeBox(child, onLock) {
@@ -340,7 +379,7 @@ function childDetailsDialog(title, initial, onSave) {
   if (!initial) name.focus();
 }
 
-function pinDialog(child, reload) {
+function pinDialog(child, reload, fresh = false) {
   const save = el("button", { class: "btn plain", disabled: true }, "שמירה");
   const pin = el("input", {
     type: "password", inputmode: "numeric", autocomplete: "off", dir: "ltr",
@@ -352,9 +391,13 @@ function pinDialog(child, reload) {
       runAction(() => api.rpc("set_child_pin", { p_child: child.id, p_pin: pin.value }), "קוד ההורה נשמר", reload);
     };
     return {
-      title: `קוד הורה ל${child.name}`,
-      body: [el("p", { class: "muted small" }, "בעזרת הקוד הזה נכנסים להגדרות בטלפון של הילד. 4 עד 6 ספרות."), field("קוד", pin)],
-      buttons: [el("button", { class: "btn plain", onclick: close }, "ביטול"), save],
+      title: fresh ? `🔑 בוחרים קוד הורה ל${child.name}` : `קוד הורה ל${child.name}`,
+      body: fresh ? [
+        el("p", { class: "muted small" }, `עם הקוד הזה ההורים נכנסים להגדרות בטלפון של ${child.name}. בלי קוד, ${child.name} יכול/ה לכבות את ההגנות. 4 עד 6 ספרות, שרק ההורים יודעים.`),
+        el("p", { class: "muted small" }, `אחרי זה מקלידים את קוד השיוך בטלפון של ${child.name}.`),
+        field("קוד", pin),
+      ] : [el("p", { class: "muted small" }, "בעזרת הקוד הזה נכנסים להגדרות בטלפון של הילד. 4 עד 6 ספרות."), field("קוד", pin)],
+      buttons: [el("button", { class: "btn plain", onclick: close }, fresh ? "אחר כך" : "ביטול"), save],
     };
   });
   pin.focus();

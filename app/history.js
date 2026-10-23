@@ -230,7 +230,9 @@ function statsView(container, app) {
     const usedDays = days.filter((d) => d.total > 0).length;
     const short = (day) => `${+day.slice(8)}/${+day.slice(5, 7)}`;
     const selected = days.find((d) => d.day === view.chosenDay) || [...days].reverse().find((d) => d.total > 0) || days[days.length - 1];
-    const appsOfDay = Object.entries(selected.apps).sort((a, b) => b[1] - a[1]);
+    // Apps open less than a minute that day (system screens like a "share" chooser) aren't listed.
+    const appsOfDay = Object.entries(selected.apps).filter(([, s]) => s >= 60).sort((a, b) => b[1] - a[1]);
+    const hiddenApps = Object.values(selected.apps).filter((s) => s > 0 && s < 60).length;
 
     return [
       ...top,
@@ -249,6 +251,8 @@ function statsView(container, app) {
         el("b", { class: "primary-text" }, formatDuration(selected.total))),
       appsOfDay.length === 0 && el("p", { class: "muted" }, "אין זמן מסך ביום הזה."),
       appsOfDay.map(([pkg, seconds]) => appUsageRow(labels[pkg] || pkg, icons[pkg], seconds, appsOfDay[0][1])),
+      hiddenApps > 0 && el("p", { class: "small muted" },
+        hiddenApps === 1 ? "ועוד אפליקציה אחת שהייתה פתוחה פחות מדקה" : `ועוד ${hiddenApps} אפליקציות שהיו פתוחות פחות מדקה`),
       el("p", { class: "small muted" }, `נמדד בטלפון של ${child.name} כשהמסך דלוק, בלי מסך הבית ובלי האפליקציה הזו. מתעדכן בכל סנכרון.`),
     ];
   });

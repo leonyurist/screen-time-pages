@@ -174,6 +174,13 @@ input.invalid { border-color: var(--danger); }
 .pair-box { background: var(--accent-soft); border-radius: 16px; padding: 12px; text-align: center; }
 .pair-code { font-size: 34px; font-weight: 700; letter-spacing: 6px; }
 .status { font-size: 13px; color: var(--muted); margin: 0; }
+.levels-row { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; border-radius: 16px; padding: 12px 14px; background: var(--primary-soft); color: var(--text); font: inherit; text-align: start; cursor: pointer; }
+.levels-row .levels-icon { font-size: 22px; }
+.levels-row .levels-text { flex: 1; display: flex; flex-direction: column; }
+.levels-row > .muted { font-size: 24px; }
+.level-line { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 17px; }
+.level-line .up { color: var(--primary); }
+.level-line .down { color: #c96a10; }
 .mode-box { border-radius: 16px; padding: 12px; background: var(--neutral-soft); display: flex; flex-direction: column; gap: 8px; }
 .mode-box.locked { background: var(--accent-soft); }
 .mode-box.free { background: var(--primary-soft); }
