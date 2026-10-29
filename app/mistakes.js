@@ -14,6 +14,7 @@ export async function loadMistakes(childId) {
   return rows.map((m) => ({
     id: m.id,
     subject: m.subject, // math | hebrew | english | reading | logic | general
+    topic: m.topic || null, // the question's topic, or the math exercise type; null for old math
     question: m.question,
     answer: m.answer,
     given: m.given,
@@ -112,12 +113,14 @@ function openSheet(onClose) {
 /** The child's mistakes: to go over together, or already gone over. [onClosed] reloads the page under it. */
 export function mistakesScreen(child, onClosed) {
   const sheet = openSheet(onClosed);
-  const state = { subject: null, showOpen: true, rewarded: null };
+  const state = { subject: null, showOpen: true, byTopic: true, rewarded: null };
 
   async function load() {
     sheet.set(el("p", { class: "loading" }, "טוען..."));
     try {
-      const [list, correction] = await Promise.all([loadMistakes(child.id), loadCorrection(child.id)]);
+      const [list, correction, weak] = await Promise.all([loadMistakes(child.id), loadCorrection(child.id),
+        api.select(`child_topics?select=subject,topic&status=eq.weak&child_id=eq.${child.id}`).catch(() => [])]);
+      state.weak = new Set(weak.map((t) => t.subject + "|" + t.topic));
       draw(groupMistakes(list), correction);
       // The child just finished correcting alone: the result and minutes first.
       if (correction.done && state.rewarded !== correction.done.id) {
@@ -161,11 +164,15 @@ export function mistakesScreen(child, onClosed) {
       el("div", { class: "segmented" },
         el("button", { type: "button", "aria-pressed": String(state.showOpen), onclick: () => { state.showOpen = true; redraw() } }, `לעבור עליהן (${openCount})`),
         el("button", { type: "button", "aria-pressed": String(!state.showOpen), onclick: () => { state.showOpen = false; redraw() } }, `עברנו (${inSubject.length - openCount})`)),
+      // The open ones by topic (default), so the parent sees where the child finds it hard.
+      state.showOpen && shown.length > 0 && chips([[true, "לפי נושא"], [false, "כל השאלות"]], state.byTopic, (v) => { state.byTopic = v; redraw() }),
       shown.length === 0 && el("p", { class: "muted pad" },
         groups.length === 0 ? "אין טעויות ב-30 הימים האחרונים 🎉" : state.showOpen ? "עברתם על כל הטעויות 🎉" : "עוד לא עברתם על אף טעות."),
-      shown.map((x, i) => mistakeRow(x, child, () => walkthrough(child, shown, i, load))),
+      state.showOpen && state.byTopic
+        ? byTopic(shown).map((t) => topicRow(t, state.weak, () => explainTopic(child, t, load)))
+        : shown.map((x, i) => mistakeRow(x, child, () => walkthrough(child, shown, i, load))),
       state.showOpen && shown.length > 0 && el("div", { class: "sheet-bottom stack" },
-        el("button", { class: "btn block big-btn", onclick: () => walkthrough(child, shown, 0, load) }, `▶ לעבור ביחד (${shown.length})`),
+        !state.byTopic && el("button", { class: "btn block big-btn", onclick: () => walkthrough(child, shown, 0, load) }, `▶ לעבור ביחד (${shown.length})`),
         !open && sendable > 0 && el("button", {
           class: "btn outline block", onclick: () => sendDialog(child, sendable, allOpen.length - sendable, load),
         }, `🔁 לתת ל${child.name} לנסות שוב לבד`)),
@@ -173,6 +180,113 @@ export function mistakesScreen(child, onClosed) {
   }
 
   load();
+}
+
+// --- By topic ---
+
+/** The topic's name for the parent; old math mistakes have none. */
+const topicName = (t) => t.topic || "תרגילים שונים";
+
+/** Open mistake groups by subject and topic, the topic with the most first. */
+function byTopic(groups) {
+  const topics = new Map();
+  for (const x of groups) {
+    const key = x.latest.subject + "|" + (x.latest.topic || "");
+    if (!topics.has(key)) topics.set(key, { subject: x.latest.subject, topic: x.latest.topic, groups: [] });
+    topics.get(key).groups.push(x);
+  }
+  // Inside a topic: the ones answered wrong most often first, then the newest.
+  for (const t of topics.values()) t.groups.sort((a, b) => b.items.length - a.items.length || new Date(b.latest.createdAt) - new Date(a.latest.createdAt));
+  return [...topics.values()].sort((a, b) => b.groups.length - a.groups.length);
+}
+
+function topicRow(t, weak, onclick) {
+  return el("button", { type: "button", class: "card mistake-row", onclick },
+    el("div", { class: "row" },
+      el("span", { class: "grow small muted" }, subjectLabel(t.subject)),
+      weak?.has(t.subject + "|" + t.topic) && el("b", { class: "small accent-text" }, "🎯 נושא לחיזוק")),
+    el("span", { class: "row" },
+      el("b", { class: "grow block" }, topicName(t)),
+      el("span", { class: "accent-text" }, mistakesWord(t.groups.length)), el("span", { class: "muted" }, " ›")));
+}
+
+/**
+ * "מסבירים": the topic's tip for the parent, then the child's mistakes in it one at a time ("עוד
+ * דוגמה"), until "✅ הוסבר" marks them all. Then optional: practice it as a challenge, and minutes.
+ */
+function explainTopic(child, t, onDone) {
+  const sheet = openSheet(onDone);
+  let index = 0;
+  let tip = null;
+  const who = `${child.name} ${answered(child)}`;
+  const all = mistakesWord(t.groups.length);
+  // A challenge needs a topic the child's learning can ask (not reading passages, not old math).
+  const canPractice = t.topic && t.subject !== "reading";
+
+  async function markAll(status) {
+    try {
+      const n = await api.rpc("parent_mark_topic", { p_child: child.id, p_subject: t.subject, p_topic: t.topic, p_status: status });
+      if (status === "still_hard") {
+        toast(`סומנו ${mistakesWord(n)}: הן יחזרו ל${child.name} בלמידה`);
+        sheet.close();
+      } else finish(n);
+    } catch (e) { toast(e.message || "שגיאה") }
+  }
+
+  function finish(n) {
+    let reward = 10;
+    const practice = canPractice && el("div", { class: "card stack" },
+      el("b", {}, "🎯 לתרגל את הנושא בלמידה הבאה?"),
+      el("p", { class: "small muted" }, `${child.name} ${g(child, "יקבל", "תקבל")} "אתגר מההורים" בנושא, והוא מסתיים ב-80% נכונות. פרס כשמצליחים:`),
+      chips([[0, "בלי פרס"], [5, "5 דק׳"], [10, "10 דק׳"], [15, "15 דק׳"], [20, "20 דק׳"]], reward, (v) => { reward = v }),
+      el("button", { class: "btn outline block", onclick: (e) => runAction(
+        () => api.rpc("parent_challenge", { p_child: child.id, p_subject: t.subject, p_topic: t.topic, p_reward: reward }),
+        "האתגר נשלח 🎯", () => { e.target.closest(".card").replaceChildren(el("b", {}, "🎯 האתגר נשלח")) }) }, "לשלוח אתגר"));
+    sheet.set([
+      practice,
+      rewardScreen(child, {
+        emoji: "👏",
+        title: `הסברתם את ${topicName(t)}`,
+        subtitle: `${mistakesWord(n)} ${n === 1 ? "סומנה" : "סומנו"} ✅ הבנו`,
+        ask: `לתת ל${child.name} זמן מסך על השיחה?`,
+        note: "📝 עברנו על הטעויות",
+      }, sheet.close),
+    ]);
+  }
+
+  function draw() {
+    const x = t.groups[index];
+    const m = x.latest;
+    sheet.set([
+      el("div", { class: "row" },
+        el("b", { class: "grow" }, `מסבירים: ${topicName(t)}`),
+        el("button", { class: "btn plain", onclick: sheet.close }, "✕ סגירה")),
+      el("p", { class: "small muted" }, `${subjectLabel(t.subject)} · ${all}`),
+      tip && el("div", { class: "card tip-card stack" },
+        el("b", {}, `💡 ${tip.title}`),
+        el("p", {}, tip.body),
+        el("p", { class: "small muted" }, tip.example)),
+      el("b", { class: "block" }, `דוגמה ${index + 1} מתוך ${t.groups.length}`),
+      m.passage && foldBox(`📖 ${m.passage.title || "הקטע"}`, m.passage.body, false, "passage-box"),
+      el("h2", { class: "walk-q" }, questionText(m)),
+      m.choices
+        ? m.choices.map((c) => choiceLine(c, c === m.given ? false : c === m.answer ? true : null, who))
+        : [choiceLine(m.given, false, who), choiceLine(m.answer, true, who)],
+      m.explanation && foldBox("💡 איך פותרים", m.explanation, true, "explain-box"),
+      el("div", { class: "sheet-bottom stack" },
+        el("button", { class: "btn block big-btn", onclick: () => markAll("understood") }, `✅ הוסבר, לסמן את כל ה-${t.groups.length}`),
+        el("div", { class: "row" },
+          index + 1 < t.groups.length && el("button", { class: "btn outline grow", onclick: () => { index++; draw() } }, "עוד דוגמה ›"),
+          index > 0 && el("button", { class: "btn outline grow", onclick: () => { index--; draw() } }, "‹ הקודמת")),
+        el("button", { class: "btn plain", onclick: () => markAll("still_hard") }, "🔁 עדיין קשה: לסמן את כולן")),
+    ]);
+  }
+
+  draw();
+  if (t.topic) {
+    api.rpc("parent_topic_tip", { p_child: child.id, p_subject: t.subject, p_topic: t.topic })
+      .then((res) => { if (res) { tip = res; draw() } }).catch(() => {});
+  }
 }
 
 function mistakeRow(group, child, onclick) {

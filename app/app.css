@@ -386,3 +386,7 @@ body.sheet-open { overflow: hidden; }
 input.week-minutes { width: 110px; min-height: 44px; text-align: center; }
 /* New apps waiting for approval (rules.js newAppsSection) */
 .waiting-apps { background: var(--accent-soft); box-shadow: none; }
+
+/* "מסבירים נושא": the topic's tip for the parent. */
+.tip-card { background: var(--primary-soft); }
+.tip-card p { margin: 0; }
