@@ -99,7 +99,7 @@ export function rulesScreen(container, app) {
     const child = pick(children, app.childId);
     if (!child) return { children, child };
     const [r, apps] = await Promise.all([
-      api.select(`rules?select=require_approval,daily_cap,auto_approve_up_to,seconds_per_correct,mistakes_reminder,app_types,lock_schedule,app_limits,daily_allowance,reset_daily,daily_max,new_apps&child_id=eq.${child.id}`),
+      api.select(`rules?select=require_approval,daily_cap,auto_approve_up_to,seconds_per_correct,mistakes_reminder,strengthen_ratio,strengthen_reward,app_types,lock_schedule,app_limits,daily_allowance,reset_daily,daily_max,new_apps&child_id=eq.${child.id}`),
       api.select(`device_apps?select=package,label,icon&child_id=eq.${child.id}`),
     ]);
     const rules = r[0] && {
@@ -108,6 +108,8 @@ export function rulesScreen(container, app) {
       autoApproveUpTo: r[0].auto_approve_up_to,
       secondsPerCorrect: r[0].seconds_per_correct ?? 5,
       mistakesReminder: r[0].mistakes_reminder ?? true,
+      strengthenRatio: Number(r[0].strengthen_ratio ?? 1),
+      strengthenReward: r[0].strengthen_reward ?? 0,
       types: Object.fromEntries(Object.entries(r[0].app_types || {}).filter(([, t]) => TYPES.includes(t))),
       lockHours: parseSchedule(r[0].lock_schedule),
       appLimits: r[0].app_limits || {},
@@ -198,6 +200,13 @@ export function rulesScreen(container, app) {
         el("p", { class: "small muted" }, "כל תשובה נכונה מוסיפה עוד זמן מסך, מעבר לזמן הלמידה עצמו."),
         chips([[0, "בלי בונוס"], [5, "5 שניות"], [10, "10 שניות"], [15, "15 שניות"], [30, "30 שניות"]], rules.secondsPerCorrect,
           (v) => save({ seconds_per_correct: v }))),
+      el("section", { class: "card" },
+        el("b", { class: "block" }, "💪 בונוס על חיזוק נושאים"),
+        el("p", { class: "small muted" }, `כשקשה ל${child.name} בנושא, השאלות בו חוזרות בלמידה בשקט, בלי לומר לילד שהוא חלש. אפשר לעודד בבונוס:`),
+        el("b", { class: "block small" }, "דקת למידה בנושאים לחיזוק שווה"),
+        chips([[1, "כרגיל"], [1.5, "פי 1.5"], [2, "פי 2"], [3, "פי 3"]], rules.strengthenRatio, (v) => save({ strengthen_ratio: v })),
+        el("b", { class: "block small" }, "פרס כשנושא קשה מתחזק"),
+        chips([[0, "בלי פרס"], [5, "5 דק׳"], [10, "10 דק׳"], [15, "15 דק׳"], [30, "30 דק׳"]], rules.strengthenReward, (v) => save({ strengthen_reward: v }))),
       el("section", { class: "card" },
         settingRow("📝", "תזכורת לעבור על טעויות",
           rules.mistakesReminder ? "התראה ב-18:00 כשיש טעויות בנות 3 ימים לפחות. לכל היותר פעם בשבוע, ורק כשנוספו טעויות חדשות"

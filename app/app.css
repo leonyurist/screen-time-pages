@@ -178,7 +178,7 @@ input.invalid { border-color: var(--danger); }
 .levels-row .levels-icon { font-size: 22px; }
 .levels-row .levels-text { flex: 1; display: flex; flex-direction: column; }
 .levels-row > .muted { font-size: 24px; }
-.level-line { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 17px; }
+.level-line { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 0; font-size: 17px; }
 .level-line .up { color: var(--primary); }
 .level-line .down { color: #c96a10; }
 .topics-head { font-size: 15px; margin: 12px 0 2px; }

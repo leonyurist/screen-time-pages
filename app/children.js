@@ -24,8 +24,8 @@ async function loadChildren() {
   const rows = await api.select(
     "children?select=id,name,gender,birth_year,avatar,pin_hash," +
     "devices(pairing_code,paired_at,last_seen,service_enabled,admin_active),ledger(minutes),rules(lock_mode,lock_until)," +
-    "child_levels(subject,level),child_topics(subject,topic,status,recent,changed_at)" +
-    "&child_topics.status=neq.normal&order=created_at");
+    "child_levels(subject,level),child_topics(subject,topic,status,recent,changed_at),topic_requests(id,subject,topic,reward)" +
+    "&child_topics.status=neq.normal&topic_requests.status=eq.open&order=created_at");
   const now = Date.now();
   return rows.map((c) => {
     const rules = Array.isArray(c.rules) ? c.rules[0] : c.rules;
@@ -47,6 +47,7 @@ async function loadChildren() {
         subject: t.subject, topic: t.topic, status: t.status, changedAt: t.changed_at ? new Date(t.changed_at) : null,
         right: t.recent.filter(Boolean).length, of: t.recent.length,
       })),
+      challenges: c.topic_requests || [],
     };
   });
 }
@@ -100,6 +101,7 @@ export function childrenScreen(container, app, cached) {
     onDelete: (child) => confirmDialog(`למחוק את ${child.name}?`, `כל הנתונים של ${child.name} יימחקו: יתרה, היסטוריה, משימות והגדרות. אי אפשר לבטל.`, "מחיקה",
       () => runAction(() => api.remove("children", `id=eq.${child.id}`), `${child.name} נמחק/ה`, reload)),
     onMistakes: (child) => mistakesScreen(child, reload),
+    onTopics: (child) => topicsDialog(child, reload),
     onToggle: (child) => { openCards.has(child.id) ? openCards.delete(child.id) : openCards.add(child.id); childrenScreen(container, app, current) },
   };
 
@@ -167,7 +169,7 @@ function childCard(child, expanded, a) {
     paired && el("p", { class: "status" }, "✅ הטלפון מחובר · עודכן לאחרונה: ", el("bdi", {}, formatDateTime(device.last_seen))),
     paired && phoneModeBox(child, (mode) => a.onLock(child, mode)),
     paired && levelsBox(child),
-    paired && topicsBox(child),
+    paired && topicsBox(child, () => a.onTopics(child)),
     // The two everyday actions, side by side and alike.
     el("div", { class: "tiles" },
       actionTile("🎁", "להוסיף דקות", "או להוריד", () => a.onMinutes(child)),
@@ -208,42 +210,92 @@ const actionTile = (icon, title, subtitle, onclick) =>
  * "🎓 רמות למידה": one short line in the card (how many subjects are above or below the age),
  * opening a window with the level in each subject (LevelsBox in the app).
  */
+/** "✏️ לשון · שורשים" for a topic. */
+function topicLabel(t) {
+  const s = subjects().find((x) => x.key === t.subject);
+  return `${s ? s.emoji + " " + s.title : t.subject} · ${t.topic}`;
+}
+
 /**
- * "🎯 נושאים לחיזוק": the topics the child finds hard (under 50% of the last 12 answers) and the ones
- * that got strong again lately (SPEC.md "אפיון: חיזוק נושאים חלשים"). Only for the parent; hidden
- * when there is nothing to show.
+ * "🎯 נושאים לחיזוק" in the child's card: how many topics are hard (under 50% of the last 12
+ * answers), got strong lately, or are the parent's open challenges (SPEC.md "אפיון: חיזוק נושאים
+ * חלשים"). Only for the parent. Opens topicsDialog.
  */
-function topicsBox(child) {
-  const weak = child.topics.filter((t) => t.status === "weak").sort((a, b) => a.right / a.of - b.right / b.of);
-  const strong = child.topics.filter((t) => t.status === "strong" && t.changedAt && Date.now() - t.changedAt < 30 * 86_400_000)
-    .sort((a, b) => b.changedAt - a.changedAt);
-  if (!weak.length && !strong.length) return null;
-  const label = (t) => {
-    const s = subjects().find((x) => x.key === t.subject);
-    return `${s ? s.emoji + " " + s.title : t.subject} · ${t.topic}`;
-  };
+function topicsBox(child, onOpen) {
+  const weak = child.topics.filter((t) => t.status === "weak").length;
+  const strong = child.topics.filter((t) => t.status === "strong" && t.changedAt && Date.now() - t.changedAt < 30 * 86_400_000).length;
   const summary = [
-    weak.length && (weak.length === 1 ? "נושא אחד" : `${weak.length} נושאים`),
-    strong.length && (strong.length === 1 ? "✅ אחד התחזק" : `✅ ${strong.length} התחזקו`),
+    weak ? (weak === 1 ? "נושא אחד קשה" : `${weak} נושאים קשים`) : "אין נושאים קשים",
+    strong && (strong === 1 ? "✅ אחד התחזק" : `✅ ${strong} התחזקו`),
+    child.challenges.length && (child.challenges.length === 1 ? "🎯 אתגר פתוח" : `🎯 ${child.challenges.length} אתגרים`),
   ].filter(Boolean).join(" · ");
-  return el("button", {
-    type: "button", class: "levels-row",
-    onclick: () => openDialog((close) => ({
-      title: `🎯 נושאים לחיזוק של ${child.name}`,
-      body: [
-        el("p", { class: "muted small" },
-          `נושא קשה: פחות מחצי נכונות ב-12 התשובות האחרונות בו. הוא מתחזק ב-80% ומעלה. ${child.name} לא רואה את הרשימה הזו.`),
-        weak.length ? el("h3", { class: "topics-head" }, "צריך חיזוק") : null,
-        ...weak.map((t) => el("div", { class: "level-line" }, el("span", {}, label(t)), el("b", { class: "down" }, `${t.right} מ-${t.of}`))),
-        strong.length ? el("h3", { class: "topics-head" }, "✅ התחזק לאחרונה") : null,
-        ...strong.map((t) => el("div", { class: "level-line" }, el("span", {}, label(t)), el("b", { class: "up" }, `${t.right} מ-${t.of}`))),
-      ],
-      buttons: [el("button", { class: "btn plain", onclick: close }, "סגירה")],
-    })),
-  },
-  el("span", { class: "levels-icon" }, "🎯"),
-  el("span", { class: "levels-text" }, el("b", {}, "נושאים לחיזוק"), el("span", { class: "small muted" }, summary)),
-  el("span", { class: "muted" }, "›"));
+  return el("button", { type: "button", class: "levels-row", onclick: onOpen },
+    el("span", { class: "levels-icon" }, "🎯"),
+    el("span", { class: "levels-text" }, el("b", {}, "נושאים לחיזוק"), el("span", { class: "small muted" }, summary)),
+    el("span", { class: "muted" }, "›"));
+}
+
+/** All the child's topics with their scores, and a "🎯" to send any of them as a challenge. */
+async function topicsDialog(child, reload) {
+  let rows = [];
+  try {
+    rows = await api.select(`child_topics?select=subject,topic,status,recent,changed_at&child_id=eq.${child.id}`);
+  } catch (e) { toast(e.message || "שגיאה"); return; }
+  const topics = rows.map((t) => ({
+    subject: t.subject, topic: t.topic, status: t.status, changedAt: t.changed_at ? new Date(t.changed_at) : null,
+    right: t.recent.filter(Boolean).length, of: t.recent.length,
+  }));
+  const score = (t) => t.right / Math.max(t.of, 1);
+  const weak = topics.filter((t) => t.status === "weak").sort((a, b) => score(a) - score(b));
+  const strong = topics.filter((t) => t.status === "strong" && t.changedAt && Date.now() - t.changedAt < 30 * 86_400_000);
+  const others = topics.filter((t) => t.status === "normal" && t.of >= 4).sort((a, b) => score(a) - score(b)).slice(0, 15);
+  const open = new Set(child.challenges.map((c) => c.subject + "|" + c.topic));
+  const line = (t, cls) => el("div", { class: "level-line" },
+    el("span", { class: "grow" }, topicLabel(t)),
+    el("b", { class: cls }, `${t.right} מ-${t.of}`),
+    open.has(t.subject + "|" + t.topic) ? el("span", { class: "small muted" }, "🎯")
+      : el("button", { class: "btn plain small", title: "שליחה כאתגר", onclick: () => { d.close(); challengeDialog(child, t, reload) } }, "🎯"));
+
+  const d = openDialog((close) => ({
+    title: `🎯 נושאים לחיזוק של ${child.name}`,
+    body: [
+      el("p", { class: "muted small" },
+        `נושא קשה: פחות מחצי נכונות ב-12 התשובות האחרונות בו, ומתחזק ב-80%. השאלות בו חוזרות בלמידה בשקט, ו${child.name} לא רואה את הרשימה. 🎯 שולח נושא כאתגר.`),
+      child.challenges.length ? el("h3", { class: "topics-head" }, "🎯 אתגרים פתוחים") : null,
+      ...child.challenges.map((c) => el("div", { class: "level-line" },
+        el("span", { class: "grow" }, topicLabel(c)),
+        c.reward ? el("span", { class: "small" }, `🎁 ${c.reward} דק׳`) : null,
+        el("button", { class: "btn plain small danger", onclick: () => runAction(() => api.rpc("parent_cancel_challenge", { p_id: c.id }), "האתגר בוטל", () => { close(); reload() }) }, "ביטול"))),
+      weak.length ? el("h3", { class: "topics-head" }, "צריך חיזוק") : null,
+      ...weak.map((t) => line(t, "down")),
+      strong.length ? el("h3", { class: "topics-head" }, "✅ התחזק לאחרונה") : null,
+      ...strong.map((t) => line(t, "up")),
+      others.length ? el("h3", { class: "topics-head" }, "נושאים נוספים") : null,
+      ...others.map((t) => line(t, "")),
+      topics.length === 0 ? el("p", { class: "muted" }, `עוד אין מספיק תשובות. הנושאים יופיעו אחרי ש${child.name} ${child.gender === "girl" ? "תענה" : "יענה"} על כמה שאלות בכל נושא.`) : null,
+    ],
+    buttons: [el("button", { class: "btn plain", onclick: close }, "סגירה")],
+  }));
+}
+
+/** "שלח כאתגר": the child sees "🎯 אתגר מההורים" with the reward, done at 80% of the last 12. */
+function challengeDialog(child, t, reload) {
+  let reward = 10;
+  openDialog((close) => ({
+    title: `🎯 אתגר ל${child.name}`,
+    body: [
+      el("p", {}, el("b", {}, topicLabel(t))),
+      el("p", { class: "small muted" }, `השאלות בנושא יופיעו בלמידה, והאתגר מסתיים כש${child.name} ${child.gender === "girl" ? "עונה" : "עונה"} נכון על 80% מ-12 השאלות האחרונות בו. אתגר חדש באותו מקצוע מחליף את הקודם.`),
+      el("b", { class: "block small" }, "פרס כשמצליחים"),
+      chips([[0, "בלי פרס"], [5, "5 דק׳"], [10, "10 דק׳"], [15, "15 דק׳"], [20, "20 דק׳"], [30, "30 דק׳"]], reward, (v) => { reward = v }),
+    ],
+    buttons: [
+      el("button", { class: "btn plain", onclick: close }, "ביטול"),
+      el("button", { class: "btn", onclick: () => runAction(
+        () => api.rpc("parent_challenge", { p_child: child.id, p_subject: t.subject, p_topic: t.topic, p_reward: reward }),
+        "האתגר נשלח 🎯", () => { close(); reload() }) }, "שליחה"),
+    ],
+  }));
 }
 
 function levelsBox(child) {
