@@ -99,7 +99,7 @@ export function rulesScreen(container, app) {
     const child = pick(children, app.childId);
     if (!child) return { children, child };
     const [r, apps] = await Promise.all([
-      api.select(`rules?select=require_approval,daily_cap,auto_approve_up_to,seconds_per_correct,mistakes_reminder,strengthen_ratio,strengthen_reward,app_types,lock_schedule,app_limits,daily_allowance,reset_daily,daily_max,new_apps&child_id=eq.${child.id}`),
+      api.select(`rules?select=require_approval,daily_cap,auto_approve_up_to,seconds_per_correct,mistakes_reminder,strengthen_ratio,strengthen_reward,daily_goal,goal_notify,surprise_on,surprise_budget,app_types,lock_schedule,app_limits,daily_allowance,reset_daily,daily_max,new_apps&child_id=eq.${child.id}`),
       api.select(`device_apps?select=package,label,icon&child_id=eq.${child.id}`),
     ]);
     const rules = r[0] && {
@@ -110,6 +110,10 @@ export function rulesScreen(container, app) {
       mistakesReminder: r[0].mistakes_reminder ?? true,
       strengthenRatio: Number(r[0].strengthen_ratio ?? 1),
       strengthenReward: r[0].strengthen_reward ?? 0,
+      dailyGoal: r[0].daily_goal ?? 10,
+      goalNotify: r[0].goal_notify ?? true,
+      surpriseOn: r[0].surprise_on ?? true,
+      surpriseBudget: r[0].surprise_budget ?? 10,
       types: Object.fromEntries(Object.entries(r[0].app_types || {}).filter(([, t]) => TYPES.includes(t))),
       lockHours: parseSchedule(r[0].lock_schedule),
       appLimits: r[0].app_limits || {},
@@ -200,6 +204,20 @@ export function rulesScreen(container, app) {
         el("p", { class: "small muted" }, "כל תשובה נכונה מוסיפה עוד זמן מסך, מעבר לזמן הלמידה עצמו."),
         chips([[0, "בלי בונוס"], [5, "5 שניות"], [10, "10 שניות"], [15, "15 שניות"], [30, "30 שניות"]], rules.secondsPerCorrect,
           (v) => save({ seconds_per_correct: v }))),
+      minutesSection("🎯", "יעד למידה יומי",
+        rules.dailyGoal > 0 ? `כל יום ${child.name} רואה כמה נשאר ליעד, וכשמשלימים מקבלים תיבת זהב 🥇 (4–6 דק׳)` : "כבוי: בלי יעד יומי",
+        rules.dailyGoal, "דק׳ למידה ביום", [0, 5, 10, 15, 20], 120, (v) => save({ daily_goal: v }), "בלי יעד"),
+      rules.dailyGoal > 0 && el("section", { class: "card" },
+        settingRow("🔔", "התראה כשהיעד הושלם", rules.goalNotify ? "פעם ביום, כשהיעד הושלם" : "כבוי",
+          toggle(rules.goalNotify, (v) => save({ goal_notify: v }), "התראה כשהיעד הושלם"))),
+      el("section", { class: "card" },
+        settingRow("🎁", "תיבות הפתעה",
+          rules.surpriseOn ? "התיבות מופיעות באופן אקראי בזמן למידה, אחרי תשובות נכונות. יותר תשובות נכונות ומקצועות שלא למדו מזמן מגדילים את הסיכוי"
+            : "כבוי: בלי תיבות (תיבת הזהב של היעד היומי נשארת)",
+          toggle(rules.surpriseOn, (v) => save({ surprise_on: v }), "תיבות הפתעה"))),
+      rules.surpriseOn && minutesSection("💰", "הכי הרבה דקות מתיבות ביום",
+        `${child.name} לא יודע/ת מה התקרה. כשהיא נגמרת, לעיתים נדירות תגיע עוד תיבה של דקה`,
+        rules.surpriseBudget, "דק׳ ביום", [5, 10, 15, 30], 120, (v) => save({ surprise_budget: v })),
       el("section", { class: "card" },
         el("b", { class: "block" }, "💪 בונוס על חיזוק נושאים"),
         el("p", { class: "small muted" }, `כשקשה ל${child.name} בנושא, השאלות בו חוזרות בלמידה בשקט, בלי לומר לילד שהוא חלש. אפשר לעודד בבונוס:`),
@@ -340,6 +358,41 @@ function asHours(minutes) {
 }
 
 /** Most screen minutes that can be earned in a day (0 to 1440): shown big, changed in a small window. */
+/** A setting in minutes: the number, and "שינוי" opens quick choices and a free field (0..[max]). */
+function minutesSection(icon, title, subtitle, current, unit, presets, max, onSave, zeroLabel) {
+  return el("section", { class: "card" },
+    settingRow(icon, title, subtitle,
+      el("button", { class: "btn outline small", onclick: () => minutesSettingDialog(`${icon} ${title}`, current, unit, presets, max, onSave, zeroLabel) }, "שינוי")),
+    el("div", { class: "cap" },
+      current === 0 && zeroLabel ? el("b", { class: "primary-text" }, zeroLabel)
+        : [el("b", { class: "cap-number ltr" }, current), el("span", { class: "primary-text" }, " " + unit)]));
+}
+
+function minutesSettingDialog(title, current, unit, presets, max, onSave, zeroLabel) {
+  let text = String(current);
+  const value = () => { const n = Number(text); return text !== "" && n >= 0 && n <= max ? n : null };
+  const save = el("button", { class: "btn plain" }, "שמירה");
+  const hint = el("small", { class: "hint" });
+  let quick;
+  const input = digitsInput(text, 3, (v) => { text = v; update() });
+  function update() {
+    save.disabled = value() == null;
+    hint.textContent = value() == null ? `אפשר מ-0 עד ${max}` : "";
+    hint.className = "hint" + (value() == null ? " error-text" : "");
+    quick.select(value());
+  }
+  quick = chips(presets.map((m) => [m, m === 0 && zeroLabel ? zeroLabel : String(m)]), null, (m) => { text = String(m); input.value = text; update() });
+  update();
+  openDialog((close) => {
+    save.onclick = () => { close(); onSave(value()) };
+    return {
+      title,
+      body: [quick, el("label", { class: "field" }, el("span", {}, `או מספר אחר (${unit})`), input, hint)],
+      buttons: [el("button", { class: "btn plain", onclick: close }, "ביטול"), save],
+    };
+  });
+}
+
 function dailyCapSection(current, onSave) {
   return el("section", { class: "card" },
     settingRow("📈", "תקרת צבירה יומית", "הכי הרבה דקות שאפשר לצבור (להרוויח) ביום מלמידה ומשימות. זה לא מגביל כמה משתמשים",

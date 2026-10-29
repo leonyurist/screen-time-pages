@@ -20,12 +20,16 @@ async function loadChildrenWithMistakes() {
   return children;
 }
 
+/** The Israel date 6 days ago ("2026-10-24"): with today, the last 7 days. */
+const weekAgo = () => new Date(Date.now() - 6 * 86_400_000).toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" });
+
 async function loadChildren() {
   const rows = await api.select(
     "children?select=id,name,gender,birth_year,avatar,pin_hash," +
     "devices(pairing_code,paired_at,last_seen,service_enabled,admin_active),ledger(minutes),rules(lock_mode,lock_until)," +
-    "child_levels(subject,level),child_topics(subject,topic,status,recent,changed_at),topic_requests(id,subject,topic,reward)" +
-    "&child_topics.status=neq.normal&topic_requests.status=eq.open&order=created_at");
+    "child_levels(subject,level),child_topics(subject,topic,status,recent,changed_at),topic_requests(id,subject,topic,reward)," +
+    "rules(daily_goal),daily_progress(day,goal_done_at)" +
+    `&child_topics.status=neq.normal&topic_requests.status=eq.open&daily_progress.day=gte.${weekAgo()}&order=created_at`);
   const now = Date.now();
   return rows.map((c) => {
     const rules = Array.isArray(c.rules) ? c.rules[0] : c.rules;
@@ -48,6 +52,8 @@ async function loadChildren() {
         right: t.recent.filter(Boolean).length, of: t.recent.length,
       })),
       challenges: c.topic_requests || [],
+      dailyGoal: (Array.isArray(c.rules) ? c.rules[0] : c.rules)?.daily_goal ?? 0,
+      goalDays: (c.daily_progress || []).filter((d) => d.goal_done_at).length,
     };
   });
 }
@@ -170,6 +176,8 @@ function childCard(child, expanded, a) {
     paired && phoneModeBox(child, (mode) => a.onLock(child, mode)),
     paired && levelsBox(child),
     paired && topicsBox(child, () => a.onTopics(child)),
+    paired && child.dailyGoal > 0 && el("p", { class: "small muted" },
+      `🎯 יעד יומי (${child.dailyGoal} דק׳): הושלם ${child.goalDays} מתוך 7 הימים האחרונים`),
     // The two everyday actions, side by side and alike.
     el("div", { class: "tiles" },
       actionTile("🎁", "להוסיף דקות", "או להוריד", () => a.onMinutes(child)),
