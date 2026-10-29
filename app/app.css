@@ -181,6 +181,7 @@ input.invalid { border-color: var(--danger); }
 .level-line { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 17px; }
 .level-line .up { color: var(--primary); }
 .level-line .down { color: #c96a10; }
+.topics-head { font-size: 15px; margin: 12px 0 2px; }
 .mode-box { border-radius: 16px; padding: 12px; background: var(--neutral-soft); display: flex; flex-direction: column; gap: 8px; }
 .mode-box.locked { background: var(--accent-soft); }
 .mode-box.free { background: var(--primary-soft); }

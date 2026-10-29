@@ -24,8 +24,8 @@ async function loadChildren() {
   const rows = await api.select(
     "children?select=id,name,gender,birth_year,avatar,pin_hash," +
     "devices(pairing_code,paired_at,last_seen,service_enabled,admin_active),ledger(minutes),rules(lock_mode,lock_until)," +
-    "child_levels(subject,level)" +
-    "&order=created_at");
+    "child_levels(subject,level),child_topics(subject,topic,status,recent,changed_at)" +
+    "&child_topics.status=neq.normal&order=created_at");
   const now = Date.now();
   return rows.map((c) => {
     const rules = Array.isArray(c.rules) ? c.rules[0] : c.rules;
@@ -43,6 +43,10 @@ async function loadChildren() {
       lockMode: expired ? "normal" : rules?.lock_mode || "normal",
       lockUntil: expired ? null : lockUntil,
       levels: Object.fromEntries((c.child_levels || []).map((l) => [l.subject, l.level])),
+      topics: (c.child_topics || []).map((t) => ({
+        subject: t.subject, topic: t.topic, status: t.status, changedAt: t.changed_at ? new Date(t.changed_at) : null,
+        right: t.recent.filter(Boolean).length, of: t.recent.length,
+      })),
     };
   });
 }
@@ -163,6 +167,7 @@ function childCard(child, expanded, a) {
     paired && el("p", { class: "status" }, "✅ הטלפון מחובר · עודכן לאחרונה: ", el("bdi", {}, formatDateTime(device.last_seen))),
     paired && phoneModeBox(child, (mode) => a.onLock(child, mode)),
     paired && levelsBox(child),
+    paired && topicsBox(child),
     // The two everyday actions, side by side and alike.
     el("div", { class: "tiles" },
       actionTile("🎁", "להוסיף דקות", "או להוריד", () => a.onMinutes(child)),
@@ -203,6 +208,44 @@ const actionTile = (icon, title, subtitle, onclick) =>
  * "🎓 רמות למידה": one short line in the card (how many subjects are above or below the age),
  * opening a window with the level in each subject (LevelsBox in the app).
  */
+/**
+ * "🎯 נושאים לחיזוק": the topics the child finds hard (under 50% of the last 12 answers) and the ones
+ * that got strong again lately (SPEC.md "אפיון: חיזוק נושאים חלשים"). Only for the parent; hidden
+ * when there is nothing to show.
+ */
+function topicsBox(child) {
+  const weak = child.topics.filter((t) => t.status === "weak").sort((a, b) => a.right / a.of - b.right / b.of);
+  const strong = child.topics.filter((t) => t.status === "strong" && t.changedAt && Date.now() - t.changedAt < 30 * 86_400_000)
+    .sort((a, b) => b.changedAt - a.changedAt);
+  if (!weak.length && !strong.length) return null;
+  const label = (t) => {
+    const s = subjects().find((x) => x.key === t.subject);
+    return `${s ? s.emoji + " " + s.title : t.subject} · ${t.topic}`;
+  };
+  const summary = [
+    weak.length && (weak.length === 1 ? "נושא אחד" : `${weak.length} נושאים`),
+    strong.length && (strong.length === 1 ? "✅ אחד התחזק" : `✅ ${strong.length} התחזקו`),
+  ].filter(Boolean).join(" · ");
+  return el("button", {
+    type: "button", class: "levels-row",
+    onclick: () => openDialog((close) => ({
+      title: `🎯 נושאים לחיזוק של ${child.name}`,
+      body: [
+        el("p", { class: "muted small" },
+          `נושא קשה: פחות מחצי נכונות ב-12 התשובות האחרונות בו. הוא מתחזק ב-80% ומעלה. ${child.name} לא רואה את הרשימה הזו.`),
+        weak.length ? el("h3", { class: "topics-head" }, "צריך חיזוק") : null,
+        ...weak.map((t) => el("div", { class: "level-line" }, el("span", {}, label(t)), el("b", { class: "down" }, `${t.right} מ-${t.of}`))),
+        strong.length ? el("h3", { class: "topics-head" }, "✅ התחזק לאחרונה") : null,
+        ...strong.map((t) => el("div", { class: "level-line" }, el("span", {}, label(t)), el("b", { class: "up" }, `${t.right} מ-${t.of}`))),
+      ],
+      buttons: [el("button", { class: "btn plain", onclick: close }, "סגירה")],
+    })),
+  },
+  el("span", { class: "levels-icon" }, "🎯"),
+  el("span", { class: "levels-text" }, el("b", {}, "נושאים לחיזוק"), el("span", { class: "small muted" }, summary)),
+  el("span", { class: "muted" }, "›"));
+}
+
 function levelsBox(child) {
   const age = Math.min(12, Math.max(6, child.birthYear ? new Date().getFullYear() - child.birthYear : 8));
   const levels = subjects().map((s) => [`${s.emoji} ${s.title}`, child.levels[s.key] ?? age]);
