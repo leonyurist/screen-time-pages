@@ -27,7 +27,7 @@ async function loadChildren() {
   const rows = await api.select(
     "children?select=id,name,gender,birth_year,avatar,pin_hash," +
     "devices(pairing_code,paired_at,last_seen,service_enabled,admin_active),balance,rules(lock_mode,lock_until,daily_goal)," +
-    "child_levels(subject,level),child_topics(subject,topic,status,recent,changed_at),topic_requests(id,subject,topic,reward)," +
+    "child_levels(subject,level,set_by),child_topics(subject,topic,status,recent,changed_at),topic_requests(id,subject,topic,reward)," +
     "daily_progress(day,goal_done_at)" +
     `&child_topics.status=neq.normal&topic_requests.status=eq.open&daily_progress.day=gte.${weekAgo()}&order=created_at`);
   const now = Date.now();
@@ -47,6 +47,7 @@ async function loadChildren() {
       lockMode: expired ? "normal" : rules?.lock_mode || "normal",
       lockUntil: expired ? null : lockUntil,
       levels: Object.fromEntries((c.child_levels || []).map((l) => [l.subject, l.level])),
+      levelsSetByParent: new Set((c.child_levels || []).filter((l) => l.set_by).map((l) => l.subject)),
       topics: (c.child_topics || []).map((t) => ({
         subject: t.subject, topic: t.topic, status: t.status, changedAt: t.changed_at ? new Date(t.changed_at) : null,
         right: t.recent.filter(Boolean).length, of: t.recent.length,
@@ -95,6 +96,10 @@ export function childrenScreen(container, app, cached) {
   const actions = {
     onLock: (child, mode) => (mode === "normal" ? setLock(child, mode, null) : lockDialog(child, mode, (until) => setLock(child, mode, until))),
     onMinutes: (child) => minutesDialog(child, reload),
+    onSetLevels: (child, changed) => runAction(
+      () => Promise.all(Object.entries(changed).map(([subject, level]) =>
+        api.rpc("parent_set_level", { p_child: child.id, p_subject: subject, p_level: level }))),
+      `הרמה של ${child.name} עודכנה 🎓`, reload),
     onLocate: (child) => locationDialog(child),
     onRing: (child) => confirmDialog(`🔔 להשמיע צליל בטלפון של ${child.name}?`,
       "הטלפון יצלצל בקול חזק כ-30 שניות, גם אם הוא בשקט או ברטט. מתאים כשהטלפון אבד בבית. צריך שיהיה בו אינטרנט. בטלפון אפשר לעצור את הצליל מההתראה.",
@@ -174,7 +179,7 @@ function childCard(child, expanded, a) {
       el("div", { class: "pair-code ltr" }, device.pairing_code)),
     paired && el("p", { class: "status" }, "✅ הטלפון מחובר · עודכן לאחרונה: ", el("bdi", {}, formatDateTime(device.last_seen))),
     paired && phoneModeBox(child, (mode) => a.onLock(child, mode)),
-    paired && levelsBox(child),
+    paired && levelsBox(child, (changed) => a.onSetLevels(child, changed)),
     paired && topicsBox(child, () => a.onTopics(child)),
     paired && child.dailyGoal > 0 && el("p", { class: "small muted" },
       `🎯 יעד יומי (${child.dailyGoal} דק׳): הושלם ${child.goalDays} מתוך 7 הימים האחרונים`),
@@ -306,7 +311,7 @@ function challengeDialog(child, t, reload) {
   }));
 }
 
-function levelsBox(child) {
+function levelsBox(child, onSave) {
   const age = Math.min(12, Math.max(6, child.birthYear ? new Date().getFullYear() - child.birthYear : 8));
   const levels = subjects().map((s) => [`${s.emoji} ${s.title}`, child.levels[s.key] ?? age]);
   const up = levels.filter(([, l]) => l > age).length;
@@ -316,16 +321,45 @@ function levelsBox(child) {
   const arrow = (l) => l > age ? " ⬆️" : l < age ? " ⬇️" : "";
   return el("button", {
     type: "button", class: "levels-row",
-    onclick: () => openDialog((close) => ({
-      title: `🎓 רמות הלמידה של ${child.name}`,
-      body: [
-        el("p", { class: "muted small" }, `כל רמה עולה לבד מעל 85% הצלחה ב-40 התשובות האחרונות, ויורדת ב-25% ומטה. גיל ${child.name}: ${age}.`),
-        ...levels.map(([label, l]) => el("div", { class: "level-line" },
-          el("span", {}, label),
-          el("b", { class: l > age ? "up" : l < age ? "down" : "" }, `רמת גיל ${l}${arrow(l)}`))),
-      ],
-      buttons: [el("button", { class: "btn plain", onclick: close }, "סגירה")],
-    })),
+    // The parent's changes, saved together (SPEC.md "ההורה משנה את הרמה").
+    onclick: () => openDialog((close) => {
+      const saved = Object.fromEntries(subjects().map((s) => [s.key, child.levels[s.key] ?? age]));
+      const edited = { ...saved };
+      const save = el("button", { class: "btn", onclick: () => { close(); onSave(changed()) } }, "שמירה");
+      const cancel = el("button", { class: "btn plain", onclick: close }, "ביטול");
+      const changed = () => Object.fromEntries(Object.entries(edited).filter(([k, l]) => l !== saved[k]));
+      const refresh = () => {
+        const any = Object.keys(changed()).length > 0;
+        save.hidden = !any;
+        cancel.textContent = any ? "ביטול" : "סגירה";
+      };
+      const line = (s) => {
+        const value = el("b", {});
+        const mark = el("span", { class: "small muted block" }, "✋ נקבעה ע״י ההורה");
+        const minus = el("button", { type: "button", class: "btn plain small step", "aria-label": "רמה אחת למטה", onclick: () => set(edited[s.key] - 1) }, "−");
+        const plus = el("button", { type: "button", class: "btn plain small step", "aria-label": "רמה אחת למעלה", onclick: () => set(edited[s.key] + 1) }, "+");
+        const set = (l) => {
+          edited[s.key] = l;
+          value.textContent = `${l}${arrow(l)}`;
+          value.className = "level-value " + (l > age ? "up" : l < age ? "down" : "");
+          minus.disabled = l <= 6;
+          plus.disabled = l >= 12;
+          mark.hidden = !child.levelsSetByParent.has(s.key) || l !== saved[s.key];
+          refresh();
+        };
+        set(edited[s.key]);
+        return el("div", { class: "level-line" },
+          el("span", { class: "grow" }, `${s.emoji} ${s.title}`, mark),
+          minus, value, plus);
+      };
+      const body = [
+        el("p", { class: "muted small" }, `כל רמה עולה לבד מעל 85% הצלחה ב-40 התשובות האחרונות, ויורדת ב-25% ומטה. גיל ${child.name}: ${age}. ` +
+          "אפשר לשנות כאן רמה (6 עד 12). אחרי שינוי היא ממשיכה לזוז לבד אחרי 40 תשובות חדשות."),
+        ...subjects().map(line),
+      ];
+      refresh();
+      return { title: `🎓 רמות הלמידה של ${child.name}`, body, buttons: [cancel, save] };
+    }),
   },
   el("span", { class: "levels-icon" }, "🎓"),
   el("span", { class: "levels-text" }, el("b", {}, "רמות למידה"), el("span", { class: "small muted" }, summary)),
