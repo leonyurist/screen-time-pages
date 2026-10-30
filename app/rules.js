@@ -205,7 +205,7 @@ export function rulesScreen(container, app) {
         chips([[0, "בלי בונוס"], [5, "5 שניות"], [10, "10 שניות"], [15, "15 שניות"], [30, "30 שניות"]], rules.secondsPerCorrect,
           (v) => save({ seconds_per_correct: v }))),
       minutesSection("🎯", "יעד למידה יומי",
-        rules.dailyGoal > 0 ? `כל יום ${child.name} רואה כמה נשאר ליעד, וכשמשלימים מקבלים תיבת זהב 🥇 (4–6 דק׳)` : "כבוי: בלי יעד יומי",
+        rules.dailyGoal > 0 ? `כל יום ${child.name} רואה כמה נשאר ליעד, וכשמשלימים מקבלים תיבת זהב 🥇 (4 עד 6 דק׳)` : "כבוי: בלי יעד יומי",
         rules.dailyGoal, "דק׳ למידה ביום", [0, 5, 10, 15, 20], 120, (v) => save({ daily_goal: v }), "בלי יעד"),
       rules.dailyGoal > 0 && el("section", { class: "card" },
         settingRow("🔔", "התראה כשהיעד הושלם", rules.goalNotify ? "פעם ביום, כשהיעד הושלם" : "כבוי",
