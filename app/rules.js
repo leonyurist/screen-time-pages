@@ -208,7 +208,7 @@ export function rulesScreen(container, app) {
       minutesSection("🎯", "יעד למידה יומי",
         rules.dailyGoal > 0 ? `כל יום ${child.name} רואה כמה נשאר ליעד, וכשמשלימים מקבלים מדליה 🥇` : "כבוי: בלי יעד יומי",
         rules.dailyGoal, "דק׳ למידה ביום", [0, 5, 10, 15, 20], 120, (v) => save({ daily_goal: v }), "בלי יעד"),
-      rules.dailyGoal > 0 && minutesSection("🥇", "תיבת זהב כשמשלימים את היעד",
+      rules.dailyGoal > 0 && minutesSection("🥇", "תיבת זהב ליעד",
         rules.goalBox > 0 ? "בכל פעם מגרילים בטווח: מחצי מהמספר ועד המספר" : "בלי דקות, רק חגיגה ומדליה",
         rules.goalBox, "דק׳ לכל היותר", [0, 2, 4, 6], 30, (v) => save({ goal_box: v }), "בלי תיבה", goalBoxRange),
       rules.dailyGoal > 0 && el("section", { class: "card" },
