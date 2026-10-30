@@ -26,9 +26,9 @@ const weekAgo = () => new Date(Date.now() - 6 * 86_400_000).toLocaleDateString("
 async function loadChildren() {
   const rows = await api.select(
     "children?select=id,name,gender,birth_year,avatar,pin_hash," +
-    "devices(pairing_code,paired_at,last_seen,service_enabled,admin_active),ledger(minutes),rules(lock_mode,lock_until)," +
+    "devices(pairing_code,paired_at,last_seen,service_enabled,admin_active),balance,rules(lock_mode,lock_until,daily_goal)," +
     "child_levels(subject,level),child_topics(subject,topic,status,recent,changed_at),topic_requests(id,subject,topic,reward)," +
-    "rules(daily_goal),daily_progress(day,goal_done_at)" +
+    "daily_progress(day,goal_done_at)" +
     `&child_topics.status=neq.normal&topic_requests.status=eq.open&daily_progress.day=gte.${weekAgo()}&order=created_at`);
   const now = Date.now();
   return rows.map((c) => {
@@ -42,7 +42,7 @@ async function loadChildren() {
       birthYear: c.birth_year,
       avatar: c.avatar || DEFAULT_AVATAR,
       pinSet: c.pin_hash != null,
-      balance: Math.trunc(c.ledger.reduce((sum, l) => sum + Number(l.minutes), 0)),
+      balance: Math.trunc(Number(c.balance)),
       device: c.devices[0] || null,
       lockMode: expired ? "normal" : rules?.lock_mode || "normal",
       lockUntil: expired ? null : lockUntil,
