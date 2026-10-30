@@ -99,7 +99,7 @@ export function rulesScreen(container, app) {
     const child = pick(children, app.childId);
     if (!child) return { children, child };
     const [r, apps] = await Promise.all([
-      api.select(`rules?select=require_approval,daily_cap,auto_approve_up_to,seconds_per_correct,mistakes_reminder,strengthen_ratio,strengthen_reward,daily_goal,goal_notify,surprise_on,surprise_budget,app_types,lock_schedule,app_limits,daily_allowance,reset_daily,daily_max,new_apps&child_id=eq.${child.id}`),
+      api.select(`rules?select=require_approval,daily_cap,auto_approve_up_to,seconds_per_correct,mistakes_reminder,strengthen_ratio,strengthen_reward,daily_goal,goal_notify,goal_box,surprise_on,surprise_budget,app_types,lock_schedule,app_limits,daily_allowance,reset_daily,daily_max,new_apps&child_id=eq.${child.id}`),
       api.select(`device_apps?select=package,label,icon&child_id=eq.${child.id}`),
     ]);
     const rules = r[0] && {
@@ -112,6 +112,7 @@ export function rulesScreen(container, app) {
       strengthenReward: r[0].strengthen_reward ?? 0,
       dailyGoal: r[0].daily_goal ?? 10,
       goalNotify: r[0].goal_notify ?? true,
+      goalBox: r[0].goal_box ?? 4,
       surpriseOn: r[0].surprise_on ?? true,
       surpriseBudget: r[0].surprise_budget ?? 10,
       types: Object.fromEntries(Object.entries(r[0].app_types || {}).filter(([, t]) => TYPES.includes(t))),
@@ -205,8 +206,11 @@ export function rulesScreen(container, app) {
         chips([[0, "בלי בונוס"], [5, "5 שניות"], [10, "10 שניות"], [15, "15 שניות"], [30, "30 שניות"]], rules.secondsPerCorrect,
           (v) => save({ seconds_per_correct: v }))),
       minutesSection("🎯", "יעד למידה יומי",
-        rules.dailyGoal > 0 ? `כל יום ${child.name} רואה כמה נשאר ליעד, וכשמשלימים מקבלים תיבת זהב 🥇 (4 עד 6 דק׳)` : "כבוי: בלי יעד יומי",
+        rules.dailyGoal > 0 ? `כל יום ${child.name} רואה כמה נשאר ליעד, וכשמשלימים מקבלים מדליה 🥇` : "כבוי: בלי יעד יומי",
         rules.dailyGoal, "דק׳ למידה ביום", [0, 5, 10, 15, 20], 120, (v) => save({ daily_goal: v }), "בלי יעד"),
+      rules.dailyGoal > 0 && minutesSection("🥇", "תיבת זהב כשמשלימים את היעד",
+        rules.goalBox > 0 ? "בכל פעם מגרילים בטווח: מחצי מהמספר ועד המספר" : "בלי דקות, רק חגיגה ומדליה",
+        rules.goalBox, "דק׳ לכל היותר", [0, 2, 4, 6], 30, (v) => save({ goal_box: v }), "בלי תיבה", goalBoxRange),
       rules.dailyGoal > 0 && el("section", { class: "card" },
         settingRow("🔔", "התראה כשהיעד הושלם", rules.goalNotify ? "פעם ביום, כשהיעד הושלם" : "כבוי",
           toggle(rules.goalNotify, (v) => save({ goal_notify: v }), "התראה כשהיעד הושלם"))),
@@ -359,16 +363,23 @@ function asHours(minutes) {
 
 /** Most screen minutes that can be earned in a day (0 to 1440): shown big, changed in a small window. */
 /** A setting in minutes: the number, and "שינוי" opens quick choices and a free field (0..[max]). */
-function minutesSection(icon, title, subtitle, current, unit, presets, max, onSave, zeroLabel) {
+/** The gold box's range in words ("2 עד 4 דק׳"): a dash between numbers shows reversed in Hebrew. */
+function goalBoxRange(max) {
+  const min = Math.floor((max + 1) / 2);
+  return min === max ? `${max} דק׳` : `${min} עד ${max} דק׳`;
+}
+
+function minutesSection(icon, title, subtitle, current, unit, presets, max, onSave, zeroLabel, format) {
   return el("section", { class: "card" },
     settingRow(icon, title, subtitle,
-      el("button", { class: "btn outline small", onclick: () => minutesSettingDialog(`${icon} ${title}`, current, unit, presets, max, onSave, zeroLabel) }, "שינוי")),
+      el("button", { class: "btn outline small", onclick: () => minutesSettingDialog(`${icon} ${title}`, current, unit, presets, max, onSave, zeroLabel, format) }, "שינוי")),
     el("div", { class: "cap" },
       current === 0 && zeroLabel ? el("b", { class: "primary-text" }, zeroLabel)
+        : format ? el("b", { class: "primary-text" }, format(current))
         : [el("b", { class: "cap-number ltr" }, current), el("span", { class: "primary-text" }, " " + unit)]));
 }
 
-function minutesSettingDialog(title, current, unit, presets, max, onSave, zeroLabel) {
+function minutesSettingDialog(title, current, unit, presets, max, onSave, zeroLabel, format) {
   let text = String(current);
   const value = () => { const n = Number(text); return text !== "" && n >= 0 && n <= max ? n : null };
   const save = el("button", { class: "btn plain" }, "שמירה");
@@ -381,7 +392,7 @@ function minutesSettingDialog(title, current, unit, presets, max, onSave, zeroLa
     hint.className = "hint" + (value() == null ? " error-text" : "");
     quick.select(value());
   }
-  quick = chips(presets.map((m) => [m, m === 0 && zeroLabel ? zeroLabel : String(m)]), null, (m) => { text = String(m); input.value = text; update() });
+  quick = chips(presets.map((m) => [m, m === 0 && zeroLabel ? zeroLabel : format ? format(m) : String(m)]), null, (m) => { text = String(m); input.value = text; update() });
   update();
   openDialog((close) => {
     save.onclick = () => { close(); onSave(value()) };
