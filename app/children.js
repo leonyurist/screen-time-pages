@@ -9,6 +9,7 @@ import {
 import { DEFAULT_AVATAR, subjects } from "./shared.js";
 import { locationDialog } from "./location.js";
 import { mistakesScreen, mistakesSummary, mistakesWord } from "./mistakes.js";
+import { animalsBox } from "./animals.js";
 
 /** Children whose card is open (cards start closed, and stay open while the site is open). */
 const openCards = new Set();
@@ -27,7 +28,7 @@ async function loadChildren() {
   const rows = await api.select(
     "children?select=id,name,gender,birth_year,avatar,pin_hash," +
     "devices(pairing_code,paired_at,last_seen,service_enabled,admin_active),balance,rules(lock_mode,lock_until,daily_goal)," +
-    "child_levels(subject,level,set_by),child_topics(subject,topic,status,recent,changed_at),topic_requests(id,subject,topic,reward)," +
+    "child_levels(subject,level,set_by),child_animals(animal),child_topics(subject,topic,status,recent,changed_at),topic_requests(id,subject,topic,reward)," +
     "daily_progress(day,goal_done_at)" +
     `&child_topics.status=neq.normal&topic_requests.status=eq.open&daily_progress.day=gte.${weekAgo()}&order=created_at`);
   const now = Date.now();
@@ -47,6 +48,7 @@ async function loadChildren() {
       lockMode: expired ? "normal" : rules?.lock_mode || "normal",
       lockUntil: expired ? null : lockUntil,
       levels: Object.fromEntries((c.child_levels || []).map((l) => [l.subject, l.level])),
+      animals: (c.child_animals || []).length,
       levelsSetByParent: new Set((c.child_levels || []).filter((l) => l.set_by).map((l) => l.subject)),
       topics: (c.child_topics || []).map((t) => ({
         subject: t.subject, topic: t.topic, status: t.status, changedAt: t.changed_at ? new Date(t.changed_at) : null,
@@ -180,6 +182,7 @@ function childCard(child, expanded, a) {
     paired && el("p", { class: "status" }, "✅ הטלפון מחובר · עודכן לאחרונה: ", el("bdi", {}, formatDateTime(device.last_seen))),
     paired && phoneModeBox(child, (mode) => a.onLock(child, mode)),
     paired && levelsBox(child, (changed) => a.onSetLevels(child, changed)),
+    paired && animalsBox(child),
     paired && topicsBox(child, () => a.onTopics(child)),
     paired && child.dailyGoal > 0 && el("p", { class: "small muted" },
       `🎯 יעד יומי (${child.dailyGoal} דק׳): הושלם ${child.goalDays} מתוך 7 הימים האחרונים`),

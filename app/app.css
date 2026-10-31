@@ -394,3 +394,36 @@ input.week-minutes { width: 110px; min-height: 44px; text-align: center; }
 /* "מסבירים נושא": the topic's tip for the parent. */
 .tip-card { background: var(--primary-soft); }
 .tip-card p { margin: 0; }
+
+/* The animal album (animals.js), like AnimalAlbum in the Android app */
+.animals-row { background: #f3ecfb; }
+.center { text-align: center; }
+.an-shelf { border-radius: 24px; padding: 12px 12px 16px; background: var(--shelf); }
+.an-head { display: flex; align-items: center; gap: 10px; margin: 0 4px 12px; }
+.an-head b { font-size: 19px; }
+.an-medal { width: 34px; height: 34px; flex: none; border-radius: 50%; background: var(--edge); border: 3px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.an-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.an-card { border-radius: 20px; padding: 4px; background: var(--edge); display: flex; }
+.an-inner { flex: 1; border-radius: 16px; overflow: hidden; background: #fffaf3; display: flex; flex-direction: column; }
+.an-scene { height: 120px; flex: none; display: flex; align-items: center; justify-content: center; position: relative; }
+.an-animal { width: 88px; height: 88px; filter: drop-shadow(3px 0 0 #fff) drop-shadow(-3px 0 0 #fff) drop-shadow(0 3px 0 #fff) drop-shadow(0 -3px 0 #fff) drop-shadow(0 4px 3px rgba(60, 40, 20, .3)); }
+.an-deco { position: absolute; bottom: 10px; inset-inline-start: 10px; width: 22px; height: 22px; }
+.an-info { padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 5px; flex: 1; }
+.an-name { font-size: 17px; font-weight: 700; }
+.an-got { font-size: 12px; line-height: 1.35; color: var(--ink); background: var(--soft); border-radius: 10px; padding: 5px 8px; }
+.an-got b { display: block; font-size: 11px; opacity: .75; }
+.an-fact { font-size: 12px; line-height: 1.35; color: var(--muted); }
+.an-closed .an-inner { background: repeating-linear-gradient(45deg, rgba(255,255,255,.22) 0 10px, rgba(255,255,255,0) 10px 20px), var(--back);
+  align-items: center; text-align: center; padding: 14px 10px 12px; gap: 8px; min-height: 200px; }
+.an-q { width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,.92); display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; color: var(--ink); flex: none; }
+.an-task { background: #fff; border-radius: 12px; padding: 8px; width: 100%; box-sizing: border-box; }
+.an-do { font-size: 15px; line-height: 1.3; }
+.an-tip { font-size: 11.5px; color: var(--muted); margin-top: 3px; line-height: 1.3; }
+.an-prog { width: 100%; margin-top: auto; }
+.an-bar { height: 9px; background: rgba(255,255,255,.4); border-radius: 6px; overflow: hidden; }
+.an-bar div { height: 100%; background: #fff; border-radius: 6px; }
+.an-prog-text { color: #fff; font-size: 12px; margin-top: 3px; }
+.an-friend { --edge: #7dbb8f; --shelf: #e7f3ea; --soft: #dff0e4; --ink: #2f6b43; --back: #8cc49c; }
+.an-special { --edge: #5b9fe0; --shelf: #e6f0fa; --soft: #dceafa; --ink: #22568a; --back: #6aa7e2; }
+.an-rare { --edge: linear-gradient(135deg, #ffe48a, #d39a0c, #fff0b5); --shelf: #fbefc8; --soft: #fbe9b2; --ink: #7a5600; --back: #d6a21a; }
+.an-legend { --edge: linear-gradient(135deg, #ff7fb0, #ffd166, #6be3b8, #6aa8ff, #b98aff); --shelf: #efe4fb; --soft: #e9dcfb; --ink: #5a2f9e; --back: linear-gradient(135deg, #b98aff, #6aa8ff); }

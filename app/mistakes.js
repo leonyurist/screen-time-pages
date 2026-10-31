@@ -90,7 +90,7 @@ const questionText = (m) =>
 // --- A screen over the whole page ---
 
 /** A full-page layer (like the Android app's full-screen dialog). Returns {set(parts), close}. */
-function openSheet(onClose) {
+export function openSheet(onClose) {
   const inner = el("div", { class: "sheet-inner" });
   const sheet = el("div", { class: "sheet", role: "dialog", "aria-modal": "true" }, inner);
   document.body.append(sheet);
